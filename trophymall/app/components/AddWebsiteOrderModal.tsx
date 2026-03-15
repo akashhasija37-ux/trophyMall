@@ -5,7 +5,12 @@ import dayjs from "dayjs";
 const { Option } = Select;
 const { TextArea } = Input;
 
-export default function AddWebsiteOrder({ open, setOpen }) {
+type AddWebsiteOrderProps = {
+  open: boolean
+  setOpen: React.Dispatch<React.SetStateAction<boolean>>
+}
+
+export default function AddWebsiteOrder({ open, setOpen }: AddWebsiteOrderProps) {
 
   const [form] = Form.useForm();
 

@@ -5,10 +5,12 @@ import { useState } from "react"
 
 const { TextArea } = Input
 
-export default function AddStockItemModal({
-open,
-setOpen
-}:{open:boolean,setOpen:any}){
+type AddStockItemModalProps = {
+  open: boolean
+  setOpen: React.Dispatch<React.SetStateAction<boolean>>
+}
+export default function AddStockItemModal({ open, setOpen }: AddStockItemModalProps) {
+
 
 const [form] = Form.useForm()
 
