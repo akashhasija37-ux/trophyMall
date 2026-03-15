@@ -92,7 +92,7 @@ export default function CreateInvoiceModal({
       onCancel={() => setOpen(false)}
       footer={null}
       width={1000}
-      className="dark-order-modal"
+      className="dark-ant-modal"
     >
       <Form
         form={form}

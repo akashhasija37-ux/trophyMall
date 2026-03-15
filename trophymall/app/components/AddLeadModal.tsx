@@ -26,7 +26,7 @@ open={open}
 onCancel={()=>setOpen(false)}
 footer={null}
 width={900}
-className="dark-order-modal"
+className="dark-ant-modal"
 >
 
 <Form

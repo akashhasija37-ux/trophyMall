@@ -26,18 +26,34 @@ body {
 }
 
 
-:where(.css-dev-only-do-not-override-1daqxe2).ant-modal .ant-modal-container{
-background: #1e1e1e!important;
+.dark-ant-modal .ant-modal-content {
+  background: #1e1e1e;
 }
-:where(.css-dev-only-do-not-override-1daqxe2).ant-form-item-vertical .ant-form-item-label >label, :where(.css-dev-only-do-not-override-1daqxe2).ant-form-item-vertical .ant-col-24.ant-form-item-label >label, :where(.css-dev-only-do-not-override-1daqxe2).ant-form-item-vertical .ant-col-xl-24.ant-form-item-label >label{
+
+.dark-ant-modal .ant-modal-title {
   color: white;
 }
-:where(.css-dev-only-do-not-override-1daqxe2).ant-modal .ant-modal-title{
-  color: white!important;
-}
-:where(.css-dev-only-do-not-override-1daqxe2).ant-modal .ant-modal-close-x{
-  color: white!important;
-}
-:where(.css-dev-only-do-not-override-1daqxe2).ant-checkbox-css-var [class^="ant-checkbox"], :where(.css-dev-only-do-not-override-1daqxe2).ant-checkbox-css-var [class*=" ant-checkbox"]{
+
+.dark-ant-modal .ant-modal-close-x {
   color: white;
+}
+
+.dark-ant-modal .ant-form-item-label > label {
+  color: white;
+}
+
+.dark-ant-modal .ant-checkbox-wrapper {
+  color: white;
+}
+.dark-ant-modal .ant-input,
+.dark-ant-modal .ant-input-number,
+.dark-ant-modal .ant-select-selector,
+.dark-ant-modal .ant-picker {
+  background: #18181b;
+  border: 1px solid #3f3f46;
+  color: white;
+}
+
+.dark-ant-modal .ant-input::placeholder {
+  color: #a1a1aa;
 }
