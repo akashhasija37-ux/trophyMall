@@ -26,8 +26,8 @@ body {
 }
 
 
-.dark-ant-modal .ant-modal-content {
-  background: #1e1e1e;
+.dark-ant-modal .ant-modal-container {
+  background: #1e1e1e!important;
 }
 
 .dark-ant-modal .ant-modal-title {
