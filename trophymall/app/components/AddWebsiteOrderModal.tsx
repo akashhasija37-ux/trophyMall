@@ -132,7 +132,7 @@ export default function AddWebsiteOrder({ open, setOpen }: AddWebsiteOrderProps)
 
         <div style={{ display: "flex", gap: 10 }}>
 
-          <Button type="primary" htmlType="submit">
+          <Button className="bg-green-600 hover:bg-green-700 border-none" htmlType="submit">
             Save Order
           </Button>
 

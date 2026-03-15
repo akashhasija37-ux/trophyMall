@@ -256,7 +256,7 @@ export default function CreateInvoiceModal({
 
         <div className="flex gap-4 mt-6">
           <Button
-            type="primary"
+           
             htmlType="submit"
             className="bg-green-600 border-none hover:bg-green-700"
           >

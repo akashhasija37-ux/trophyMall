@@ -146,7 +146,7 @@ export default function CreatePrintingJobModal({
 
         <div className="flex gap-4 mt-4">
           <Button
-            type="primary"
+          
             htmlType="submit"
             className="bg-green-600 hover:bg-green-700 border-none"
           >

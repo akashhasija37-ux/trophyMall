@@ -47,6 +47,7 @@ body {
 }
 .dark-ant-modal .ant-input,
 .dark-ant-modal .ant-input-number,
+.dark-ant-modal .ant-select,
 .dark-ant-modal .ant-select-selector,
 .dark-ant-modal .ant-picker {
   background: #18181b;
