@@ -27,8 +27,7 @@ export default function AddWebsiteOrder({ open, setOpen }: AddWebsiteOrderProps)
       onCancel={() => setOpen(false)}
       footer={null}
       width={800}
-      className="dark-order-modal"
-      style={{color:'#fff'}}
+      className="dark-ant-modal"
     >
 
       <Form
