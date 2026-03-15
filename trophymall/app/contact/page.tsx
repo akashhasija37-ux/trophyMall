@@ -1,6 +1,6 @@
 import Sidebar from "@/app/components/sidebar"
 import Topbar from "@/app/components/topbar"
-import ContactForm from "@/app/components/contactform"
+// import ContactForm from "@/app/components/contactform"
 
 export default function ContactPage() {
   return (
@@ -21,7 +21,7 @@ export default function ContactPage() {
             </p>
           </div> */}
 
-          <ContactForm />
+          {/* <ContactForm /> */}
 
         </main>
       </div>
