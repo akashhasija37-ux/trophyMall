@@ -1,23 +1,69 @@
-"use client"
+"use client";
 import { Modal, Form, Input, InputNumber, Select, DatePicker, Button } from "antd";
 import dayjs from "dayjs";
+import { useState } from "react";
+import toast from "react-hot-toast";
 
 const { Option } = Select;
 const { TextArea } = Input;
 
 type AddWebsiteOrderProps = {
-  open: boolean
-  setOpen: React.Dispatch<React.SetStateAction<boolean>>
-}
+  open: boolean;
+  setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  refresh: () => void;
+};
 
-export default function AddWebsiteOrder({ open, setOpen }: AddWebsiteOrderProps) {
-
+export default function AddWebsiteOrder({ open, setOpen, refresh }: AddWebsiteOrderProps) {
   const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (values:any) => {
-    console.log("Form Values:", values);
-    setOpen(false);
-    form.resetFields();
+  const handleSubmit = async (values: any) => {
+    const toastId = toast.loading("Saving order...");
+
+    setLoading(true);
+
+    try {
+      const payload = {
+        customer_name: values.customerName,
+        contact_details: values.contact,
+        product_name: values.productName,
+        quantity: values.quantity,
+        price: values.price,
+        payment_status: values.paymentStatus,
+        order_status: values.orderStatus,
+        order_date: values.orderDate
+          ? dayjs(values.orderDate).format("YYYY-MM-DD")
+          : null,
+        notes: values.notes || "",
+      };
+
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success("Order created successfully ✅", { id: toastId });
+
+        form.resetFields();
+        setOpen(false);
+        refresh(); // 🔥 update orders table
+      } else {
+        toast.error(data.error || "Failed to create order ❌", {
+          id: toastId,
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Server error ❌", { id: toastId });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -29,7 +75,6 @@ export default function AddWebsiteOrder({ open, setOpen }: AddWebsiteOrderProps)
       width={800}
       className="dark-ant-modal"
     >
-
       <Form
         layout="vertical"
         form={form}
@@ -38,13 +83,11 @@ export default function AddWebsiteOrder({ open, setOpen }: AddWebsiteOrderProps)
           orderId: "Auto-generated",
           paymentStatus: "Pending",
           orderStatus: "Pending",
-          orderDate: dayjs()
+          orderDate: dayjs(),
         }}
-        style={{color:'white'}}
+        style={{ color: "white" }}
       >
-
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-
           <Form.Item
             label="Customer Name"
             name="customerName"
@@ -56,9 +99,7 @@ export default function AddWebsiteOrder({ open, setOpen }: AddWebsiteOrderProps)
           <Form.Item
             label="Contact Details"
             name="contact"
-            rules={[
-              { required: true, message: "Enter email or phone" }
-            ]}
+            rules={[{ required: true, message: "Enter email or phone" }]}
           >
             <Input placeholder="Email or phone" />
           </Form.Item>
@@ -88,11 +129,7 @@ export default function AddWebsiteOrder({ open, setOpen }: AddWebsiteOrderProps)
             name="price"
             rules={[{ required: true, message: "Enter price" }]}
           >
-            <InputNumber
-              style={{ width: "100%" }}
-              min={0}
-              placeholder="₹"
-            />
+            <InputNumber style={{ width: "100%" }} min={0} placeholder="₹" />
           </Form.Item>
 
           <Form.Item
@@ -119,11 +156,11 @@ export default function AddWebsiteOrder({ open, setOpen }: AddWebsiteOrderProps)
             <Select>
               <Option value="Pending">Pending</Option>
               <Option value="Processing">Processing</Option>
-              <Option value="Completed">Completed</Option>
+              <Option value="Shipped">Shipped</Option>
+              <Option value="Delivered">Delivered</Option>
               <Option value="Cancelled">Cancelled</Option>
             </Select>
           </Form.Item>
-
         </div>
 
         <Form.Item label="Notes" name="notes">
@@ -131,17 +168,16 @@ export default function AddWebsiteOrder({ open, setOpen }: AddWebsiteOrderProps)
         </Form.Item>
 
         <div style={{ display: "flex", gap: 10 }}>
-
-          <Button className="bg-green-600 hover:bg-green-700 border-none" htmlType="submit">
+          <Button
+            htmlType="submit"
+            loading={loading}
+            className="bg-green-600 hover:bg-green-700 border-none text-white"
+          >
             Save Order
           </Button>
 
-          <Button onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
         </div>
-
       </Form>
     </Modal>
   );

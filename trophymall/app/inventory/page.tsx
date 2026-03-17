@@ -239,7 +239,7 @@ export default function InventoryPage() {
                       </span>
                     </td>
 
-                    <td className="flex justify-end gap-3 text-gray-400 mt-15px">
+                    <td className="flex justify-end gap-3 text-gray-400 actnicon">
                       <Eye size={18} />
                       <Pencil size={18} />
                     </td>
