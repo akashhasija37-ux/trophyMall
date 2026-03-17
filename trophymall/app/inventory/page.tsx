@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "@/app/components/sidebar";
 import Topbar from "@/app/components/topbar";
 import AddStockItemModal from '@/app/components/AddStockItemModal'
@@ -52,11 +52,20 @@ const inventory = [
 
 export default function InventoryPage() {
   const [openStock, setOpenStock] = useState(false);
+  const [Inventory, setInventory] = useState('');
   const badge: any = {
     "In Stock": "bg-green-500/20 text-green-400",
     "Low Stock": "bg-yellow-500/20 text-yellow-400",
     "Out of Stock": "bg-red-500/20 text-red-400",
   };
+
+  useEffect(()=>{
+
+fetch("http://localhost:5000/api/inventory")
+.then(res=>res.json())
+.then(data=>setInventory(data))
+console.log(Inventory)
+},[])
 
   return (
     <div className="flex min-h-screen bg-black">

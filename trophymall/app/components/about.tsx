@@ -21,6 +21,8 @@ const categories = [
   },
 ];
 
+//const data =categories
+
 export default function Categories() {
   return (
     <section className="bg-[#F4F1E8] py-24 px-10">
