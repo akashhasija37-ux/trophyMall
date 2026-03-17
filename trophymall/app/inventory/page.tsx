@@ -200,8 +200,8 @@ export default function InventoryPage() {
                   <th className="text-left">Product Name</th>
                   <th className="text-left">Category</th>
                   <th className="text-left">Current Stock</th>
-                  <th className="text-left">Reserved</th>
-                  <th className="text-left">Reorder Level</th>
+                  {/* <th className="text-left">Reserved</th>
+                  <th className="text-left">Reorder Level</th> */}
                   <th className="text-left">Supplier</th>
                   <th className="text-left">Status</th>
                   <th className="text-right">Actions</th>
@@ -220,10 +220,10 @@ export default function InventoryPage() {
                     <td className="text-white font-semibold">
                       {item.quantity}
                     </td>
-
+{/* 
                     <td className="text-yellow-400">0</td>
 
-                    <td className="text-gray-300">-</td>
+                    <td className="text-gray-300">-</td> */}
 
                     <td className="text-gray-300">
                       {item.supplier || "-"}
@@ -239,7 +239,7 @@ export default function InventoryPage() {
                       </span>
                     </td>
 
-                    <td className="flex justify-end gap-3 text-gray-400">
+                    <td className="flex justify-end gap-3 text-gray-400 mt-15px">
                       <Eye size={18} />
                       <Pencil size={18} />
                     </td>
