@@ -1,10 +1,11 @@
 import db from "../../../backend/config/db";
 import { NextResponse } from "next/server";
+import { query } from "../../../backend/config/query";
 
 // 👉 GET all orders
 export async function GET() {
   try {
-    const [rows] = await db.query(
+    const [rows] = await query(
       "SELECT * FROM orders ORDER BY id DESC"
     );
 
@@ -41,7 +42,7 @@ export async function POST(req) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    await db.query(sql, [
+    await query(sql, [
       order_id,
       customer_name,
       contact_details,
