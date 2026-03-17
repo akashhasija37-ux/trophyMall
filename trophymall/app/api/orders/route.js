@@ -5,7 +5,7 @@ import { query } from "../../../backend/config/query";
 // 👉 GET all orders
 export async function GET() {
   try {
-    const [rows] = await query(
+    const rows = await query(
       "SELECT * FROM orders ORDER BY id DESC"
     );
 
