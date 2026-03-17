@@ -5,7 +5,7 @@ import { query } from "../../../backend/config/query";
 // 👉 GET all orders
 export async function GET() {
   try {
-    const rows = await query(
+    const rows = await db.query(
       "SELECT * FROM orders ORDER BY id DESC"
     );
 
@@ -36,13 +36,10 @@ export async function POST(req) {
     // 🔥 Auto generate order id
     const order_id = `ORD-${Date.now()}`;
 
-    const sql = `
-      INSERT INTO orders 
+   await db.query( `INSERT INTO orders 
       (order_id, customer_name, contact_details, product_name, quantity, price, payment_status, order_status, order_date, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    await query(sql, [
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) `,
+       [
       order_id,
       customer_name,
       contact_details,
@@ -53,7 +50,8 @@ export async function POST(req) {
       order_status,
       order_date,
       notes,
-    ]);
+    ]
+);
 
     return NextResponse.json({ message: "Order created", order_id });
   } catch (err) {
