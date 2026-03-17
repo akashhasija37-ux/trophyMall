@@ -58,3 +58,6 @@ body {
 .dark-ant-modal .ant-input::placeholder {
   color: #a1a1aa;
 }
+.actnicon {
+  margin-top: 15px;
+}
