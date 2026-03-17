@@ -1,4 +1,4 @@
-import db from "@/backend/config/db";
+import db from "../../../backend/config/db";
 
 // ✅ GET all leads
 export async function GET() {

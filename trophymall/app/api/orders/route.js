@@ -1,4 +1,4 @@
-import db from "../../../../backend/config/db";
+import db from "../../../backend/config/db";
 import { NextResponse } from "next/server";
 
 // 👉 GET all orders
