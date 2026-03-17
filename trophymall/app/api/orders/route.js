@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 // 👉 GET all orders
 export async function GET() {
   try {
-    const [rows] = await db.promise().query(
+    const [rows] = await db.query(
       "SELECT * FROM orders ORDER BY id DESC"
     );
 
@@ -41,7 +41,7 @@ export async function POST(req) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    await db.promise().query(sql, [
+    await db.query(sql, [
       order_id,
       customer_name,
       contact_details,

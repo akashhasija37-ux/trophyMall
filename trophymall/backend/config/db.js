@@ -9,4 +9,4 @@ const db = mysql.createPool({
   connectionLimit: 10
 });
 
-export default db;
+export default db.promise();
