@@ -1,8 +1,9 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import Sidebar from "@/app/components/sidebar";
 import Topbar from "@/app/components/topbar";
-import AddStockItemModal from '@/app/components/AddStockItemModal'
+import AddStockItemModal from "@/app/components/AddStockItemModal";
 import {
   AlertTriangle,
   Package,
@@ -17,55 +18,43 @@ import {
   History,
 } from "lucide-react";
 
-const inventory = [
-  {
-    sku: "TRP-CRY-001",
-    name: "Crystal Trophy - Medium",
-    category: "Finished Goods",
-    stock: 45,
-    reserved: 12,
-    reorder: 20,
-    warehouse: "Mumbai Main",
-    status: "In Stock",
-  },
-  {
-    sku: "MED-GOLD-002",
-    name: "Gold Medal Set",
-    category: "Finished Goods",
-    stock: 8,
-    reserved: 2,
-    reorder: 15,
-    warehouse: "Delhi Warehouse",
-    status: "Low Stock",
-  },
-  {
-    sku: "RAW-GLS-004",
-    name: "Glass Sheets",
-    category: "Raw Materials",
-    stock: 120,
-    reserved: 10,
-    reorder: 40,
-    warehouse: "Bangalore Storage",
-    status: "In Stock",
-  },
-];
+type InventoryItem = {
+  id: number;
+  name: string;
+  sku: string;
+  category: string;
+  quantity: number;
+  purchase_price: number;
+  selling_price: number;
+  supplier: string;
+  stock_status: string;
+  notes?: string;
+};
 
 export default function InventoryPage() {
   const [openStock, setOpenStock] = useState(false);
-  const [Inventory, setInventory] = useState('');
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+
   const badge: any = {
     "In Stock": "bg-green-500/20 text-green-400",
     "Low Stock": "bg-yellow-500/20 text-yellow-400",
     "Out of Stock": "bg-red-500/20 text-red-400",
   };
 
-  useEffect(()=>{
+  // 🔥 FIX: moved outside useEffect
+  const fetchInventory = async () => {
+    try {
+      const res = await fetch("/api/inventory");
+      const data = await res.json();
+      setInventory(data);
+    } catch (err) {
+      console.error("API Error:", err);
+    }
+  };
 
-fetch("http://localhost:5000/api/inventory")
-.then(res=>res.json())
-.then(data=>setInventory(data))
-console.log(Inventory)
-},[])
+  useEffect(() => {
+    fetchInventory();
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-black">
@@ -101,7 +90,13 @@ console.log(Inventory)
                 <Plus size={18} />
                 Add Stock
               </button>
-              <AddStockItemModal open={openStock} setOpen={setOpenStock} />
+
+              {/* ✅ FIX: now works */}
+              <AddStockItemModal
+                open={openStock}
+                setOpen={setOpenStock}
+                refresh={fetchInventory}
+              />
             </div>
           </div>
 
@@ -132,29 +127,35 @@ console.log(Inventory)
           <div className="grid grid-cols-4 gap-6">
             <StatCard
               title="Total Products"
-              value="156"
+              value={inventory.length}
               note="Across all categories"
               icon={<Package className="text-blue-400" />}
             />
 
             <StatCard
               title="Low Stock Items"
-              value="12"
+              value={
+                inventory.filter((i) => i.stock_status === "Low Stock").length
+              }
               note="Requires attention"
               icon={<TrendingDown className="text-yellow-400" />}
             />
 
             <StatCard
               title="Raw Materials"
-              value="45"
+              value={
+                inventory.filter((i) => i.category === "Raw Material").length
+              }
               note="Available materials"
               icon={<Warehouse className="text-purple-400" />}
             />
 
             <StatCard
-              title="Damaged Items"
-              value="3"
-              note="Needs inspection"
+              title="Out of Stock"
+              value={
+                inventory.filter((i) => i.stock_status === "Out of Stock").length
+              }
+              note="Needs restock"
               icon={<Archive className="text-red-400" />}
             />
           </div>
@@ -201,14 +202,14 @@ console.log(Inventory)
                   <th className="text-left">Current Stock</th>
                   <th className="text-left">Reserved</th>
                   <th className="text-left">Reorder Level</th>
-                  <th className="text-left">Warehouse</th>
+                  <th className="text-left">Supplier</th>
                   <th className="text-left">Status</th>
                   <th className="text-right">Actions</th>
                 </tr>
               </thead>
 
               <tbody>
-                {inventory.map((item, i) => (
+                {inventory.map((item: InventoryItem, i) => (
                   <tr key={i} className="border-t border-zinc-800">
                     <td className="py-4 text-blue-400">{item.sku}</td>
 
@@ -216,19 +217,25 @@ console.log(Inventory)
 
                     <td className="text-gray-300">{item.category}</td>
 
-                    <td className="text-white font-semibold">{item.stock}</td>
+                    <td className="text-white font-semibold">
+                      {item.quantity}
+                    </td>
 
-                    <td className="text-yellow-400">{item.reserved}</td>
+                    <td className="text-yellow-400">0</td>
 
-                    <td className="text-gray-300">{item.reorder}</td>
+                    <td className="text-gray-300">-</td>
 
-                    <td className="text-gray-300">{item.warehouse}</td>
+                    <td className="text-gray-300">
+                      {item.supplier || "-"}
+                    </td>
 
                     <td>
                       <span
-                        className={`px-3 py-1 rounded text-xs ${badge[item.status]}`}
+                        className={`px-3 py-1 rounded text-xs ${
+                          badge[item.stock_status as keyof typeof badge]
+                        }`}
                       >
-                        {item.status}
+                        {item.stock_status}
                       </span>
                     </td>
 
