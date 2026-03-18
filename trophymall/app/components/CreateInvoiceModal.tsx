@@ -71,52 +71,71 @@ export default function CreateInvoiceModal({
 
   const total = subtotal - discountAmount + gstAmount;
 
-  const handleSubmit = async (values: any) => {
+ const handleSubmit = async (values: any) => {
 
-    const invoiceData = {
-      customer_name: values.customer,
-      invoice_date: values.invoiceDate
-        ? dayjs(values.invoiceDate).format("YYYY-MM-DD")
-        : null,
-      due_date: values.dueDate
-        ? dayjs(values.dueDate).format("YYYY-MM-DD")
-        : null,
-      payment_status: values.paymentStatus,
-      notes: values.notes,
-      items: JSON.stringify(items),
-      subtotal,
-      discount,
-      gst,
-      total_amount: total,
-    };
+  // ✅ ensure items is always array
+  const safeItems = Array.isArray(items) ? items : [];
 
-    try {
-      const res = await fetch("/api/invoices", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(invoiceData),
-      });
+  // ✅ sanitize items (avoid undefined/null issues)
+  const cleanedItems = safeItems.map((i) => ({
+    product: i.product || "",
+    qty: Number(i.qty || 0),
+    price: Number(i.price || 0),
+    total: Number(i.total || 0),
+  }));
 
-      const data = await res.json();
+  const invoiceData = {
+    customer_name: values.customer,
 
-      if (!res.ok) throw new Error(data.error || "Failed");
+    invoice_date: values.invoiceDate
+      ? dayjs(values.invoiceDate).format("YYYY-MM-DD")
+      : null,
 
-      message.success("Invoice created successfully ✅");
+    due_date: values.dueDate
+      ? dayjs(values.dueDate).format("YYYY-MM-DD")
+      : null,
 
-      setOpen(false);
-      form.resetFields();
-      setItems([{ product: "", qty: 1, price: 0, total: 0 }]);
+    payment_status: values.paymentStatus,
+    notes: values.notes || "",
 
-      // ✅ refresh list
-      if (refresh) refresh();
+    // 🔥 IMPORTANT FIX
+    items: cleanedItems, // ❌ removed JSON.stringify
 
-    } catch (err: any) {
-      console.error(err);
-      message.error(err.message || "Something went wrong ❌");
-    }
+    subtotal: Number(subtotal || 0),
+    discount: Number(discount || 0),
+    gst: Number(gst || 0),
+    total_amount: Number(total || 0),
   };
+
+  try {
+    const res = await fetch("/api/invoices", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(invoiceData),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || "Failed");
+
+    message.success("Invoice created successfully ✅");
+
+    setOpen(false);
+    form.resetFields();
+
+    // ✅ reset items safely
+    setItems([{ product: "", qty: 1, price: 0, total: 0 }]);
+
+    // ✅ refresh list
+    if (refresh) refresh();
+
+  } catch (err: any) {
+    console.error(err);
+    message.error(err.message || "Something went wrong ❌");
+  }
+};
 
   return (
     <Modal

@@ -4,7 +4,7 @@ import StatusBadge from "./components/Statusbadge";
 import Sidebar from "@/app/components/sidebar";
 import Topbar from "@/app/components/topbar";
 import AddWebsiteOrderModal from "../components/AddWebsiteOrderModal";
-
+import dayjs from "dayjs";
 type Order = {
   id: number;
   order_id: string;
@@ -184,7 +184,9 @@ export default function OrdersPage() {
                     </td>
 
                     <td className="text-right pr-6 text-white">
-                        {order.order_date}
+                        {order.order_date
+  ? dayjs(order.order_date).format("DD MMM YYYY")
+  : "-"}
                     </td>
                   </tr>
                 ))}
