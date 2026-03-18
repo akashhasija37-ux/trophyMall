@@ -184,7 +184,9 @@ export default function OrdersPage() {
                     </td>
 
                     <td className="text-right pr-6 text-white">
-                      {order.order_date}
+                        {order.order_date
+  ? new Date(order.order_date).toLocaleDateString("en-IN")
+  : "-"}
                     </td>
                   </tr>
                 ))}
