@@ -8,6 +8,7 @@ import {
   DatePicker,
   Button,
   InputNumber,
+  message
 } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import { useState } from "react";
@@ -25,9 +26,11 @@ type InvoiceItem = {
 export default function CreateInvoiceModal({
   open,
   setOpen,
+  refresh // ✅ NEW PROP
 }: {
   open: boolean;
   setOpen: any;
+  refresh?: any;
 }) {
   const [form] = Form.useForm();
 
@@ -68,21 +71,51 @@ export default function CreateInvoiceModal({
 
   const total = subtotal - discountAmount + gstAmount;
 
-  const handleSubmit = (values: any) => {
+  const handleSubmit = async (values: any) => {
+
     const invoiceData = {
-      ...values,
-      items,
+      customer_name: values.customer,
+      invoice_date: values.invoiceDate
+        ? dayjs(values.invoiceDate).format("YYYY-MM-DD")
+        : null,
+      due_date: values.dueDate
+        ? dayjs(values.dueDate).format("YYYY-MM-DD")
+        : null,
+      payment_status: values.paymentStatus,
+      notes: values.notes,
+      items: JSON.stringify(items),
       subtotal,
       discount,
       gst,
-      total,
+      total_amount: total,
     };
 
-    console.log("Invoice Data", invoiceData);
+    try {
+      const res = await fetch("/api/invoices", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(invoiceData),
+      });
 
-    setOpen(false);
+      const data = await res.json();
 
-    form.resetFields();
+      if (!res.ok) throw new Error(data.error || "Failed");
+
+      message.success("Invoice created successfully ✅");
+
+      setOpen(false);
+      form.resetFields();
+      setItems([{ product: "", qty: 1, price: 0, total: 0 }]);
+
+      // ✅ refresh list
+      if (refresh) refresh();
+
+    } catch (err: any) {
+      console.error(err);
+      message.error(err.message || "Something went wrong ❌");
+    }
   };
 
   return (
@@ -112,8 +145,8 @@ export default function CreateInvoiceModal({
             rules={[{ required: true, message: "Select customer" }]}
           >
             <Select placeholder="Select customer">
-              <Select.Option value="cust1">Customer 1</Select.Option>
-              <Select.Option value="cust2">Customer 2</Select.Option>
+              <Select.Option value="Acme Corporation">Acme Corporation</Select.Option>
+              <Select.Option value="Tech Solutions Ltd">Tech Solutions Ltd</Select.Option>
             </Select>
           </Form.Item>
 
@@ -186,7 +219,6 @@ export default function CreateInvoiceModal({
         {/* Bottom section */}
 
         <div className="grid grid-cols-2 gap-8 mt-6">
-          {/* Left */}
 
           <div>
             <Form.Item label="Payment Status" name="paymentStatus">
@@ -203,8 +235,6 @@ export default function CreateInvoiceModal({
               />
             </Form.Item>
           </div>
-
-          {/* Summary */}
 
           <div className="bg-zinc-800 p-6 rounded-lg">
             <h3 className="text-white text-lg mb-4">Invoice Summary</h3>
@@ -223,7 +253,6 @@ export default function CreateInvoiceModal({
                   value={discount}
                   onChange={(v) => setDiscount(v || 0)}
                 />
-
                 <span>%</span>
               </div>
             </div>
@@ -250,13 +279,13 @@ export default function CreateInvoiceModal({
               </span>
             </div>
           </div>
+
         </div>
 
         {/* Footer */}
 
         <div className="flex gap-4 mt-6">
           <Button
-           
             htmlType="submit"
             className="bg-green-600 border-none hover:bg-green-700"
           >
@@ -270,6 +299,7 @@ export default function CreateInvoiceModal({
             Cancel
           </Button>
         </div>
+
       </Form>
     </Modal>
   );

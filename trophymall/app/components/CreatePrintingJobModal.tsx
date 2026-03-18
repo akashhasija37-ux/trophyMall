@@ -1,6 +1,6 @@
 "use client";
 
-import { Modal, Form, Input, Select, DatePicker, Button } from "antd";
+import { Modal, Form, Input, Select, DatePicker, Button, message } from "antd"; // ✅ added message
 import dayjs from "dayjs";
 
 const { TextArea } = Input;
@@ -8,16 +8,57 @@ const { TextArea } = Input;
 export default function CreatePrintingJobModal({
   open,
   setOpen,
+  refresh, // ✅ added
 }: {
   open: boolean;
   setOpen: any;
+  refresh?: any;
 }) {
   const [form] = Form.useForm();
 
-  const handleSubmit = (values: any) => {
-    console.log("Printing Job:", values);
-    setOpen(false);
-    form.resetFields();
+  const handleSubmit = async (values: any) => {
+
+    const payload = {
+      job_title: values.jobTitle,
+      customer_name: values.customerName,
+      order_reference: values.orderReference,
+      assigned_employee: values.employee,
+      priority_level: values.priority,
+      start_date: values.startDate
+        ? dayjs(values.startDate).format("YYYY-MM-DD")
+        : null,
+      deadline: values.deadline
+        ? dayjs(values.deadline).format("YYYY-MM-DD")
+        : null,
+      job_status: values.jobStatus,
+      job_description: values.description,
+    };
+
+    try {
+      const res = await fetch("/api/printing-jobs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Failed");
+
+      message.success("Printing job created successfully ✅");
+
+      setOpen(false);
+      form.resetFields();
+
+      // ✅ refresh workflow board
+      if (refresh) refresh();
+
+    } catch (err: any) {
+      console.error(err);
+      message.error(err.message || "Something went wrong ❌");
+    }
   };
 
   return (
@@ -121,9 +162,9 @@ export default function CreatePrintingJobModal({
           >
             <Select>
               <Select.Option value="Pending">Pending</Select.Option>
-              <Select.Option value="In Progress">In Progress</Select.Option>
+              <Select.Option value="Designing">Designing</Select.Option>
+              <Select.Option value="Printing">Printing</Select.Option>
               <Select.Option value="Completed">Completed</Select.Option>
-              <Select.Option value="On Hold">On Hold</Select.Option>
             </Select>
           </Form.Item>
 
@@ -146,7 +187,6 @@ export default function CreatePrintingJobModal({
 
         <div className="flex gap-4 mt-4">
           <Button
-          
             htmlType="submit"
             className="bg-green-600 hover:bg-green-700 border-none"
           >

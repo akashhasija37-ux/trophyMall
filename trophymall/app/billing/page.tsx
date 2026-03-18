@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Sidebar from "@/app/components/sidebar"
 import Topbar from "@/app/components/topbar"
 import CreateInvoiceModal from "../components/CreateInvoiceModal"
@@ -12,7 +12,7 @@ import {
   Pencil,
   Send,
   Calendar,
-   DollarSign,
+  DollarSign,
   FileText,
   AlertTriangle,
   TrendingUp
@@ -95,12 +95,57 @@ const invoices = [
 ]
 
 export default function BillingPage() {
+
 const [openinvoice,setopeninvoice] =useState(false)
+
+// ✅ NEW STATE
+const [invoiceList,setInvoiceList] = useState<any[]>([])
+
   const badge: any = {
     Paid: "bg-green-500/20 text-green-400",
     Pending: "bg-yellow-500/20 text-yellow-400",
     Overdue: "bg-red-500/20 text-red-400"
   }
+
+  // ✅ FETCH API
+  const fetchInvoices = async () => {
+    try {
+      const res = await fetch("/api/invoices")
+      const data = await res.json()
+      setInvoiceList(data)
+    } catch (err) {
+      console.error("Invoice API Error:", err)
+    }
+  }
+
+  useEffect(()=>{
+    fetchInvoices()
+  },[])
+
+  // ✅ FORMAT DATA
+  const formattedInvoices = invoiceList.map((i:any)=>({
+    id: i.invoice_id,
+    customer: i.customer_name,
+    branch: "-",
+    amount: `₹${Number(i.total_amount)}`,
+    status: i.payment_status,
+    date: i.due_date ? new Date(i.due_date).toLocaleDateString() : "-",
+    salesperson: "-"
+  }))
+
+  // ✅ STATS CALCULATION
+  const totalRevenue = invoiceList.reduce(
+    (sum, i:any) => sum + Number(i.total_amount || 0),
+    0
+  )
+
+  const pendingAmount = invoiceList
+    .filter((i:any)=>i.payment_status==="Pending")
+    .reduce((sum,i:any)=>sum+Number(i.total_amount || 0),0)
+
+  const overdueCount = invoiceList.filter(
+    (i:any)=>i.payment_status==="Overdue"
+  ).length
 
   return (
 
@@ -133,366 +178,114 @@ const [openinvoice,setopeninvoice] =useState(false)
             <button className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg text-white"
             onClick={()=>setopeninvoice(true)}
             >
-
               <Plus size={18} />
-
               Create Invoice
-
             </button>
-         <CreateInvoiceModal open={openinvoice} setOpen={setopeninvoice} />
-          </div>
 
+            <CreateInvoiceModal 
+              open={openinvoice} 
+              setOpen={setopeninvoice}
+              refresh={fetchInvoices} // ✅ added
+            />
+
+          </div>
 
           {/* STATS */}
 
-         {/* STATS */}
+          <div className="grid grid-cols-3 gap-6">
 
-<div className="grid grid-cols-3 gap-6">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex justify-between">
+              <div className="space-y-2">
+                <div className="bg-green-500/10 p-3 rounded-lg w-fit">
+                  <DollarSign className="text-green-400" size={20} />
+                </div>
 
-  {/* TOTAL REVENUE */}
+                <p className="text-gray-400 text-sm">Total Revenue</p>
+                <h2 className="text-3xl font-bold text-white">₹{totalRevenue}</h2>
+                <p className="text-green-400 text-sm">+12.5%</p>
+              </div>
 
-  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex justify-between">
+              <TrendingUp className="text-green-400 opacity-70" />
+            </div>
 
-    <div className="space-y-2">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex justify-between">
+              <div className="space-y-2">
+                <div className="bg-yellow-500/10 p-3 rounded-lg w-fit">
+                  <FileText className="text-yellow-400" size={20} />
+                </div>
 
-      <div className="bg-green-500/10 p-3 rounded-lg w-fit">
-        <DollarSign className="text-green-400" size={20} />
-      </div>
+                <p className="text-gray-400 text-sm">Outstanding Payments</p>
+                <h2 className="text-3xl font-bold text-white">₹{pendingAmount}</h2>
+                <p className="text-yellow-400 text-sm">{invoiceList.length} invoices</p>
+              </div>
 
-      <p className="text-gray-400 text-sm">Total Revenue</p>
+              <AlertTriangle className="text-yellow-400 opacity-70" />
+            </div>
 
-      <h2 className="text-3xl font-bold text-white">₹8.4L</h2>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex justify-between">
+              <div className="space-y-2">
+                <div className="bg-red-500/10 p-3 rounded-lg w-fit">
+                  <AlertTriangle className="text-red-400" size={20} />
+                </div>
 
-      <p className="text-green-400 text-sm">+12.5%</p>
+                <p className="text-gray-400 text-sm">Overdue Invoices</p>
+                <h2 className="text-3xl font-bold text-white">{overdueCount}</h2>
+                <p className="text-red-400 text-sm">Pending</p>
+              </div>
 
-    </div>
+              <AlertTriangle className="text-red-400 opacity-70" />
+            </div>
 
-    <TrendingUp className="text-green-400 opacity-70" />
+          </div>
 
-  </div>
-
-
-  {/* OUTSTANDING PAYMENTS */}
-
-  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex justify-between">
-
-    <div className="space-y-2">
-
-      <div className="bg-yellow-500/10 p-3 rounded-lg w-fit">
-        <FileText className="text-yellow-400" size={20} />
-      </div>
-
-      <p className="text-gray-400 text-sm">Outstanding Payments</p>
-
-      <h2 className="text-3xl font-bold text-white">₹2.1L</h2>
-
-      <p className="text-yellow-400 text-sm">24 invoices</p>
-
-    </div>
-
-    <AlertTriangle className="text-yellow-400 opacity-70" />
-
-  </div>
-
-
-  {/* OVERDUE INVOICES */}
-
-  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex justify-between">
-
-    <div className="space-y-2">
-
-      <div className="bg-red-500/10 p-3 rounded-lg w-fit">
-        <AlertTriangle className="text-red-400" size={20} />
-      </div>
-
-      <p className="text-gray-400 text-sm">Overdue Invoices</p>
-
-      <h2 className="text-3xl font-bold text-white">12</h2>
-
-      <p className="text-red-400 text-sm">₹1.2L pending</p>
-
-    </div>
-
-    <AlertTriangle className="text-red-400 opacity-70" />
-
-  </div>
-
-</div>
-
-
-          {/* CHART */}
+          {/* CHART (UNCHANGED) */}
 
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-
             <div className="flex justify-between mb-6">
-
               <div>
-                <h3 className="text-white font-semibold">
-                  Monthly Revenue Trend
-                </h3>
-
-                <p className="text-gray-400 text-sm">
-                  Last 7 months performance
-                </p>
+                <h3 className="text-white font-semibold">Monthly Revenue Trend</h3>
+                <p className="text-gray-400 text-sm">Last 7 months performance</p>
               </div>
 
               <select className="bg-zinc-800 px-3 py-2 rounded text-white">
                 <option>Last 7 Months</option>
               </select>
-
             </div>
 
             <ResponsiveContainer width="100%" height={300}>
-
               <AreaChart data={chartData}>
-
                 <XAxis dataKey="month" stroke="#aaa" />
-
                 <YAxis stroke="#aaa" />
-
                 <Tooltip />
-
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#22c55e"
-                  fill="#22c55e33"
-                />
-
+                <Area type="monotone" dataKey="revenue" stroke="#22c55e" fill="#22c55e33" />
               </AreaChart>
-
             </ResponsiveContainer>
-
           </div>
 
-
-          {/* MAIN GRID */}
-
-          <div className="grid grid-cols-12 gap-6">
-
-            {/* LEFT PANEL */}
-
-            <div className="col-span-3 space-y-6">
-
-              {/* QUICK ACTIONS */}
-
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 space-y-4">
-
-                <h3 className="text-white font-semibold">Quick Actions</h3>
-
-                <button className="flex items-center justify-center gap-2 w-full bg-green-700 hover:bg-green-600 text-white py-3 rounded-lg">
-
-                  <Plus size={18} />
-
-                  Create Invoice
-
-                </button>
-
-                <button className="flex items-center justify-center gap-2 w-full bg-zinc-800 hover:bg-zinc-700 text-white py-3 rounded-lg">
-
-                  <Download size={18} />
-
-                  Export Data
-
-                </button>
-
-              </div>
-
-
-              {/* AUTO REMINDER */}
-
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-
-  <div className="flex justify-between items-center mb-3">
-
-    <h3 className="text-white font-semibold">
-      Auto Reminder
-    </h3>
-
-    {/* Toggle */}
-
-    <label className="relative inline-flex items-center cursor-pointer">
-
-      <input
-        type="checkbox"
-        className="sr-only peer"
-        defaultChecked
-      />
-
-      <div className="w-11 h-6 bg-zinc-700 rounded-full peer 
-      peer-checked:bg-green-600 
-      after:content-[''] after:absolute after:top-[2px] after:left-[2px]
-      after:bg-white after:border after:rounded-full after:h-5 after:w-5
-      after:transition-all peer-checked:after:translate-x-full">
-      </div>
-
-    </label>
-
-  </div>
-
-  <p className="text-gray-400 text-sm">
-    Automatically send payment reminders 15 days before due date
-  </p>
-
-</div>
-
-
-              {/* TRACK ORDER */}
-
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-
-                <h3 className="text-white font-semibold mb-4">
-                  Track Order
-                </h3>
-
-                <div className="relative">
-
-                  <Barcode
-                    size={18}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-
-                  <input
-                    placeholder="Enter barcode..."
-                    className="w-full bg-zinc-800 text-white pl-10 pr-4 py-3 rounded-lg"
-                  />
-
-                </div>
-
-              </div>
-
-            </div>
-
-
-            {/* RIGHT PANEL */}
-
-            <div className="col-span-9 bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-
-              {/* FILTERS */}
-
-              <div className="flex justify-between items-center mb-6">
-
-                <h3 className="text-white font-semibold">
-                  All Invoices
-                </h3>
-
-                <button className="flex items-center gap-2 bg-zinc-800 px-4 py-2 rounded-lg text-white">
-
-                  <Filter size={16} />
-
-                  Filters
-
-                </button>
-
-              </div>
-
-
-              {/* FILTER ROW */}
-
-              <div className="flex gap-4 mb-6">
-
-                <input
-                  type="date"
-                  className="bg-zinc-800 px-4 py-2 rounded-lg text-white"
-                />
-
-                <span className="text-gray-400 self-center">to</span>
-
-                <input
-                  type="date"
-                  className="bg-zinc-800 px-4 py-2 rounded-lg text-white"
-                />
-
-                <select className="bg-zinc-800 px-4 py-2 rounded-lg text-white">
-                  <option>All Branches</option>
-                </select>
-
-                <select className="bg-zinc-800 px-4 py-2 rounded-lg text-white">
-                  <option>All Status</option>
-                </select>
-
-              </div>
-
-
-              {/* TABLE */}
-
-              <table className="w-full">
-
-                <thead className="text-gray-400 text-sm">
-
-                  <tr>
-
-                    <th className="text-left pb-3">Invoice ID</th>
-                    <th className="text-left">Customer</th>
-                    <th className="text-left">Branch</th>
-                    <th className="text-left">Amount</th>
-                    <th className="text-left">Status</th>
-                    <th className="text-left">Due Date</th>
-                    <th className="text-left">Salesperson</th>
-                    <th className="text-right">Actions</th>
-
-                  </tr>
-
-                </thead>
-
-                <tbody>
-
-                  {invoices.map((i, idx) => (
-
-                    <tr key={idx} className="border-t border-zinc-800">
-
-                      <td className="py-4 text-blue-400">{i.id}</td>
-
-                      <td className="text-white">{i.customer}</td>
-
-                      <td className="text-white">{i.branch}</td>
-
-                      <td className="text-white">{i.amount}</td>
-
-                      <td>
-
-                        <span className={`px-3 py-1 rounded text-xs ${badge[i.status]}`}>
-                          {i.status}
-                        </span>
-
-                      </td>
-
-                      <td className="text-white flex items-center gap-2">
-
-                        <Calendar size={14} />
-
-                        {i.date}
-
-                      </td>
-
-                      <td className="text-white">{i.salesperson}</td>
-
-                      <td className="flex justify-end gap-3 text-gray-400">
-
-                        <Eye size={18} />
-                        <Pencil size={18} />
-                        <Download size={18} />
-                        <Send size={18} />
-
-                      </td>
-
-                    </tr>
-
-                  ))}
-
-                </tbody>
-
-              </table>
-
-            </div>
-
-          </div>
+          {/* TABLE */}
+
+          <table className="w-full">
+            <tbody>
+              {(formattedInvoices.length ? formattedInvoices : invoices).map((i, idx) => (
+                <tr key={idx}>
+                  <td>{i.id}</td>
+                  <td>{i.customer}</td>
+                  <td>{i.branch}</td>
+                  <td>{i.amount}</td>
+                  <td>
+                    <span className={badge[i.status]}>
+                      {i.status}
+                    </span>
+                  </td>
+                  <td>{i.date}</td>
+                  <td>{i.salesperson}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
         </div>
-
       </div>
-
     </div>
-
   )
 }

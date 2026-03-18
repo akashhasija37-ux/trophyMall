@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react"; // ✅ added
 import Sidebar from "@/app/components/sidebar";
 import Topbar from "@/app/components/topbar";
 import CreatePrintingJobModal from "../components/CreatePrintingJobModal";
@@ -69,6 +69,48 @@ const workflow = {
 
 export default function PrintingWorkflowPage() {
   const [openPrinting, setOpenPrinting] = useState(false);
+
+  // ✅ NEW STATE
+  const [jobs, setJobs] = useState<any[]>([]);
+
+  // ✅ FETCH API
+  const fetchJobs = async () => {
+    try {
+      const res = await fetch("/api/printing-jobs");
+      const data = await res.json();
+      setJobs(data);
+    } catch (err) {
+      console.error("Printing Jobs API Error:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  // ✅ MAP DB → UI WORKFLOW
+  const dynamicWorkflow = {
+    pending: jobs
+      .filter((j) => j.job_status === "Pending")
+      .map(mapJob),
+
+    design: jobs
+      .filter((j) => j.job_status === "Designing")
+      .map(mapJob),
+
+    printing: jobs
+      .filter((j) => j.job_status === "Printing")
+      .map(mapJob),
+
+    qc: jobs
+      .filter((j) => j.job_status === "Completed")
+      .map(mapJob),
+  };
+
+  // ✅ fallback (if no data)
+  const finalWorkflow =
+    jobs.length > 0 ? dynamicWorkflow : workflow;
+
   return (
     <div className="flex min-h-screen bg-black">
       <Sidebar />
@@ -97,9 +139,11 @@ export default function PrintingWorkflowPage() {
               <Plus size={18} />
               New Job
             </button>
+
             <CreatePrintingJobModal
               open={openPrinting}
               setOpen={setOpenPrinting}
+              refresh={fetchJobs} // ✅ added
             />
           </div>
 
@@ -128,31 +172,45 @@ export default function PrintingWorkflowPage() {
             <Column
               title="Pending"
               color="bg-gray-400"
-              jobs={workflow.pending}
+              jobs={finalWorkflow.pending}
             />
 
             <Column
               title="In Design"
               color="bg-blue-500"
-              jobs={workflow.design}
+              jobs={finalWorkflow.design}
             />
 
             <Column
               title="Printing"
               color="bg-purple-500"
-              jobs={workflow.printing}
+              jobs={finalWorkflow.printing}
             />
 
             <Column
               title="Quality Check"
               color="bg-yellow-500"
-              jobs={workflow.qc}
+              jobs={finalWorkflow.qc}
             />
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+// ✅ HELPER FUNCTION (added)
+function mapJob(j: any) {
+  return {
+    id: "JOB-" + j.id,
+    title: j.job_title,
+    client: j.customer_name,
+    priority: (j.priority_level || "low").toLowerCase(),
+    assignee: j.assigned_employee || "-",
+    deadline: j.deadline
+      ? new Date(j.deadline).toLocaleDateString()
+      : "-",
+  };
 }
 
 function Column({ title, color, jobs }: any) {

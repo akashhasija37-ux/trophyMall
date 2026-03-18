@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Sidebar from "@/app/components/sidebar"
 import Topbar from "@/app/components/topbar"
 import DispatchStats from "./components/DispatchStats"
@@ -45,7 +45,44 @@ const dispatchData = [
 ]
 
 export default function DispatchPage() {
-const [openDispatch,setOpenDispatch] = useState(false)
+
+  const [openDispatch,setOpenDispatch] = useState(false)
+
+  // 🔥 NEW STATE FOR API DATA
+  const [dispatchList, setDispatchList] = useState<any[]>([])
+
+  // 🔥 FETCH DATA FROM API
+  const fetchDispatch = async () => {
+    try {
+      const res = await fetch("/api/dispatch")
+      const data = await res.json()
+
+      setDispatchList(data)
+    } catch (err) {
+      console.error("Dispatch API Error:", err)
+    }
+  }
+
+  // 🔥 INITIAL LOAD
+  useEffect(() => {
+    fetchDispatch()
+  }, [])
+
+  // 🔥 MAP DB → UI FORMAT
+  const formattedData = dispatchList.map((item) => ({
+    dispatchId: item.dispatch_id,
+    orderId: item.order_id,
+    customer: item.customer_name,
+    items: "-", // optional (not in DB)
+    destination: "-", // optional (not in DB yet)
+    courier: item.courier_partner,
+    tracking: item.tracking_number,
+    status: item.delivery_status,
+    delivery: item.dispatch_date
+      ? new Date(item.dispatch_date).toLocaleDateString()
+      : "-"
+  }))
+
   return (
 
     <div className="flex min-h-screen bg-black">
@@ -75,23 +112,24 @@ const [openDispatch,setOpenDispatch] = useState(false)
               </p>
             </div>
 
-            <button className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg text-white"
-            
-            onClick={()=>setOpenDispatch(true)}
+            <button
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg text-white"
+              onClick={()=>setOpenDispatch(true)}
             >
               <Plus size={18} />
               Create Dispatch
             </button>
-<CreateDispatchModal
-open={openDispatch}
-setOpen={setOpenDispatch}
-/>
-          </div>
 
+            <CreateDispatchModal
+              open={openDispatch}
+              setOpen={setOpenDispatch}
+              refresh={fetchDispatch}   // 🔥 AUTO REFRESH
+            />
+
+          </div>
 
           {/* STATS */}
           <DispatchStats />
-
 
           {/* FILTER BAR */}
           <div className="flex gap-4">
@@ -122,9 +160,10 @@ setOpen={setOpenDispatch}
 
           </div>
 
-
           {/* TABLE */}
-          <DispatchTable data={dispatchData} />
+          <DispatchTable
+            data={formattedData.length ? formattedData : dispatchData}
+          />
 
         </div>
 

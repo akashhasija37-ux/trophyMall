@@ -2,22 +2,58 @@
 
 import { Modal, Form, Input, Select, DatePicker, Button } from "antd";
 import dayjs from "dayjs";
+import toast from "react-hot-toast";
 
 const { TextArea } = Input;
 
 export default function CreateDispatchModal({
   open,
   setOpen,
+  refresh, // 🔥 added for auto refresh
 }: {
   open: boolean;
   setOpen: any;
+  refresh?: any;
 }) {
   const [form] = Form.useForm();
 
-  const handleSubmit = (values: any) => {
-    console.log("Dispatch Record:", values);
-    setOpen(false);
-    form.resetFields();
+  const handleSubmit = async (values: any) => {
+    try {
+      const res = await fetch("/api/dispatch", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          order_id: values.orderId,
+          customer_name: values.customerName,
+          courier_partner: values.courier,
+          tracking_number: values.trackingNumber,
+          dispatch_date: values.dispatchDate
+            ? values.dispatchDate.format("YYYY-MM-DD")
+            : null,
+          delivery_status: values.deliveryStatus,
+          assigned_staff: values.staff,
+          notes: values.notes,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success("Dispatch created successfully 🚚");
+
+        setOpen(false);
+        form.resetFields();
+
+        if (refresh) refresh(); // 🔥 refresh table
+      } else {
+        toast.error(data.error || "Failed to create dispatch ❌");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Server error ❌");
+    }
   };
 
   return (
@@ -124,7 +160,6 @@ export default function CreateDispatchModal({
 
         <div className="flex gap-4 mt-4">
           <Button
-           
             htmlType="submit"
             className="bg-green-600 hover:bg-green-700 border-none"
           >
