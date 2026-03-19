@@ -37,62 +37,6 @@ const chartData = [
   { month: "Feb", revenue: 310000 }
 ]
 
-const invoices = [
-  {
-    id: "INV-2025-0891",
-    customer: "Acme Corporation",
-    branch: "Mumbai HQ",
-    amount: "₹45,600",
-    status: "Paid",
-    date: "Feb 20, 2026",
-    salesperson: "Rajesh Kumar"
-  },
-  {
-    id: "INV-2025-0892",
-    customer: "Tech Solutions Ltd",
-    branch: "Delhi Branch",
-    amount: "₹32,800",
-    status: "Pending",
-    date: "Feb 28, 2026",
-    salesperson: "Priya Sharma"
-  },
-  {
-    id: "INV-2025-0893",
-    customer: "Global Enterprises",
-    branch: "Bangalore Branch",
-    amount: "₹78,900",
-    status: "Overdue",
-    date: "Feb 10, 2026",
-    salesperson: "Amit Patel"
-  },
-   {
-    id: "INV-2025-0894",
-    customer: "Acme Corporation",
-    branch: "Mumbai HQ",
-    amount: "₹45,600",
-    status: "Paid",
-    date: "Feb 20, 2026",
-    salesperson: "Rajesh Kumar"
-  },
-  {
-    id: "INV-2025-0895",
-    customer: "Tech Solutions Ltd",
-    branch: "Delhi Branch",
-    amount: "₹42,800",
-    status: "out of delivery",
-    date: "Feb 28, 2026",
-    salesperson: "Priya Sharma"
-  },
-  {
-    id: "INV-2025-0896",
-    customer: "Global Enterprises",
-    branch: "Bangalore Branch",
-    amount: "₹78,900",
-    status: "Overdue",
-    date: "Feb 10, 2026",
-    salesperson: "Amit Patel"
-  }
-]
 
 export default function BillingPage() {
 
@@ -264,25 +208,54 @@ const [invoiceList,setInvoiceList] = useState<any[]>([])
 
           {/* TABLE */}
 
-          <table className="w-full">
-            <tbody>
-              {(formattedInvoices.length ? formattedInvoices : invoices).map((i, idx) => (
-                <tr key={idx}>
-                  <td>{i.id}</td>
-                  <td>{i.customer}</td>
-                  <td>{i.branch}</td>
-                  <td>{i.amount}</td>
-                  <td>
-                    <span className={badge[i.status]}>
-                      {i.status}
-                    </span>
-                  </td>
-                  <td>{i.date}</td>
-                  <td>{i.salesperson}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+               <h3 className="text-white font-semibold mb-6">All Invoices</h3>
+         
+               <table className="w-full">
+                 <thead className="text-gray-400 text-sm">
+                   <tr>
+                     <th className="text-left pb-3">Invoice ID</th>
+                     <th className="text-left">Customer</th>
+                     <th className="text-left">Branch</th>
+                     <th className="text-left">Amount</th>
+                     <th className="text-left">Status</th>
+                     <th className="text-left">Due Date</th>
+                     <th className="text-left">Salesperson</th>
+                     <th className="text-right">Actions</th>
+                   </tr>
+                 </thead>
+         
+                 <tbody >
+                   {formattedInvoices.map((i, idx) => (
+                     <tr key={idx} className="border-t border-zinc-800">
+                       <td className="py-4 text-blue-400">{i.id}</td>
+                       <td className="text-white">{i.customer}</td>
+                       <td className="text-white">{i.branch}</td>
+                       <td className="text-white">{i.amount}</td>
+         
+                       <td>
+                         <span
+                           className={`px-3 py-1 rounded text-xs ${badge[i.status]}`}
+                         >
+                           {i.status}
+                         </span>
+                       </td>
+         
+                       <td className="text-white">{i.date}</td>
+         
+                       <td className="text-white">{i.salesperson}</td>
+         
+                       <td className="flex justify-end gap-3 text-gray-400 mt-5">
+                         <Eye size={18} />
+                         <Pencil size={18} />
+                         <Download size={18} />
+                         <Send size={18} />
+                       </td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
+             </div>
 
         </div>
       </div>

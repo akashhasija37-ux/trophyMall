@@ -67,7 +67,7 @@ export default function InvoiceTable() {
           </tr>
         </thead>
 
-        <tbody>
+        <tbody style={{color:'white'}}>
           {invoices.map((i, idx) => (
             <tr key={idx} className="border-t border-zinc-800">
               <td className="py-4 text-blue-400">{i.id}</td>

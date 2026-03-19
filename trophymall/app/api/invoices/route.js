@@ -25,25 +25,27 @@ export async function POST(req) {
       invoice_date,
       due_date,
       payment_status,
-      items,
-      discount,
-      tax,
-      notes,
+      items = [],
+      discount = 0,
+      gst = 0,
+      notes = "",
     } = body;
 
     // 🔥 Generate invoice ID
     const invoice_id = `INV-${Date.now()}`;
 
-    // 🔥 Calculate totals
+    // 🔥 SAFE subtotal calculation
     let subtotal = 0;
 
     items.forEach((item) => {
-      subtotal += item.quantity * item.price;
+      const qty = Number(item.qty) || 0;
+      const price = Number(item.price) || 0;
+      subtotal += qty * price;
     });
 
-    const discountAmount = (subtotal * (discount || 0)) / 100;
-    const taxAmount = ((subtotal - discountAmount) * (tax || 0)) / 100;
-    const total = subtotal - discountAmount + taxAmount;
+    const discountAmount = subtotal * (Number(discount) / 100);
+    const gstAmount = (subtotal - discountAmount) * (Number(gst) / 100);
+    const total = subtotal - discountAmount + gstAmount;
 
     // 👉 Insert invoice
     await db.query(
@@ -58,24 +60,27 @@ export async function POST(req) {
         payment_status,
         subtotal,
         discountAmount,
-        taxAmount,
+        gstAmount, // storing GST in tax column
         total,
         notes,
       ]
     );
 
-    // 👉 Insert items
+    // 👉 Insert items (FIXED)
     for (const item of items) {
+      const qty = Number(item.qty) || 0;
+      const price = Number(item.price) || 0;
+
       await db.query(
         `INSERT INTO invoice_items 
         (invoice_id, product_name, quantity, price, total)
         VALUES (?, ?, ?, ?, ?)`,
         [
           invoice_id,
-          item.name,
-          item.quantity,
-          item.price,
-          item.quantity * item.price,
+          item.product, // ✅ FIXED
+          qty,          // ✅ FIXED
+          price,
+          qty * price,
         ]
       );
     }

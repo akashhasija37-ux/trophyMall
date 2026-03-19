@@ -5,6 +5,7 @@ export default function StatusBadge({ status }: { status: string }) {
     Confirmed: "bg-green-600/20 text-green-400",
     Pending: "bg-yellow-600/20 text-yellow-400",
     Shipped: "bg-purple-600/20 text-purple-400",
+    Cancelled: "bg-red-600/20 text-red-400",
   }
 
   return (
