@@ -1,12 +1,44 @@
 "use client"
 
 import { motion } from "framer-motion"
+import Link from "next/link"
 
 export default function FranchisePage(){
 
 return(
 
 <div className="bg-black text-white overflow-hidden">
+
+{/* ================= TOPBAR ================= */}
+
+<header className="fixed top-0 left-0 w-full z-50 bg-black/80 backdrop-blur border-b border-zinc-800">
+
+<div className="flex items-center justify-between px-10 py-4">
+
+{/* LOGO LEFT */}
+<Link href="/">
+<h1 className="text-xl font-bold tracking-wide cursor-pointer">
+<span className="text-white">Trophy</span>
+<span className="text-amber-400">Mall</span>
+</h1>
+</Link>
+
+{/* LOGIN RIGHT */}
+<div>
+<Link href="/login">
+<button className="border border-white px-5 py-2 rounded-lg hover:bg-white hover:text-black transition">
+Login
+</button>
+</Link>
+</div>
+
+</div>
+
+</header>
+
+{/* spacing for fixed navbar */}
+<div className="pt-20">
+
 
 {/* HERO */}
 
@@ -214,6 +246,9 @@ Submit Application
 </form>
 
 </section>
+
+
+</div>
 
 </div>
 

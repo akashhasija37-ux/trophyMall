@@ -5,7 +5,7 @@ import Sidebar from "@/app/components/sidebar"
 import Topbar from "@/app/components/topbar"
 import DispatchStats from "./components/DispatchStats"
 import DispatchTable from "./components/DispatchTable"
-import CreateDispatchModal from "../components/CreateDispatchModal"
+import CreateDispatchModal from "../../components/CreateDispatchModal"
 import { Plus, Filter } from "lucide-react"
 
 const dispatchData = [

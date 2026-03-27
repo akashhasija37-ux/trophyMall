@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Sidebar from "@/app/components/sidebar";
 import Topbar from "@/app/components/topbar";
-import AddEmployeeModal from "../components/AddEmployeeModal";
+import AddEmployeeModal from "../../components/AddEmployeeModal";
 import {
   Users,
   Briefcase,

@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react"; // ✅ added
 import Sidebar from "@/app/components/sidebar";
 import Topbar from "@/app/components/topbar";
-import CreatePrintingJobModal from "../components/CreatePrintingJobModal";
+import CreatePrintingJobModal from "../../components/CreatePrintingJobModal";
 import { Plus, User, Clock, MoreVertical } from "lucide-react";
 
 const workflow = {

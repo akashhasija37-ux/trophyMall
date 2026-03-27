@@ -11,7 +11,7 @@ import {
 
 import Sidebar from "@/app/components/sidebar";
 import Topbar from "@/app/components/topbar";
-import AddLeadModal from "../components/AddLeadModal";
+import AddLeadModal from "../../components/AddLeadModal";
 
 type Lead = {
   id: number;

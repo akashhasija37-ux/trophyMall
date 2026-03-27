@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react"
 import Sidebar from "@/app/components/sidebar"
 import Topbar from "@/app/components/topbar"
-import CreateInvoiceModal from "../components/CreateInvoiceModal"
+import CreateInvoiceModal from "../../components/CreateInvoiceModal"
 import {
   Plus,
   Download,
