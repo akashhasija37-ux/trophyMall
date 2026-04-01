@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 
-export default function AddCustomerModal({ onClose, onSuccess }) {
+
+
+export default function AddCustomerModal({ onClose, onSuccess }: any) {
 
   const [form, setForm] = useState({
     name: "",
