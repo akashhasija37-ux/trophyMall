@@ -33,11 +33,11 @@ const menu = [
     path: "/dashboard/leads",
   },
 
-  {
-  name: "Products",
-  icon:BoxesIcon,
-  path: "/dashboard/products"
-},
+//   {
+//   name: "Products",
+//   icon:BoxesIcon,
+//   path: "/dashboard/products"
+// },
 
   {
     name: "Website Orders",

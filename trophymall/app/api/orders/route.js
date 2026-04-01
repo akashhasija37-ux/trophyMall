@@ -1,6 +1,5 @@
 import db from "../../../backend/config/db";
 import { NextResponse } from "next/server";
-import { query } from "../../../backend/config/query";
 
 // 👉 GET all orders
 export async function GET() {
@@ -22,40 +21,129 @@ export async function POST(req) {
     const body = await req.json();
 
     const {
-      customer_name,
-      contact_details,
-      product_name,
+      customer_id,
+      product_id,
       quantity,
-      price,
       payment_status,
       order_status,
       order_date,
       notes,
     } = body;
 
+    // 🔥 Validate required fields
+    if (!customer_id || !product_id || !quantity) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
     // 🔥 Auto generate order id
     const order_id = `ORD-${Date.now()}`;
 
-   await db.query( `INSERT INTO orders 
-      (order_id, customer_name, contact_details, product_name, quantity, price, payment_status, order_status, order_date, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) `,
-       [
-      order_id,
-      customer_name,
-      contact_details,
-      product_name,
-      quantity,
-      price,
-      payment_status,
-      order_status,
-      order_date,
-      notes,
-    ]
+    // ==============================
+    // ✅ FETCH CUSTOMER FROM LEADS
+    // ==============================
+    const [customerRows] = await db.query(
+  "SELECT name, phone FROM customers WHERE id = ?",
+  [customer_id]
 );
 
-    return NextResponse.json({ message: "Order created", order_id });
+    const customer = customerRows[0];
+
+    if (!customer) {
+      return NextResponse.json(
+        { error: "Invalid customer" },
+        { status: 400 }
+      );
+    }
+
+    // ==============================
+    // ✅ FETCH PRODUCT FROM INVENTORY
+    // ==============================
+    const [productRows] = await db.query(
+      "SELECT name, selling_price, quantity FROM inventory WHERE id = ?",
+      [product_id]
+    );
+
+    const product = productRows[0];
+
+    if (!product) {
+      return NextResponse.json(
+        { error: "Invalid product" },
+        { status: 400 }
+      );
+    }
+
+    // ==============================
+    // ✅ STOCK VALIDATION
+    // ==============================
+    if (quantity > product.quantity) {
+      return NextResponse.json(
+        { error: "Not enough stock" },
+        { status: 400 }
+      );
+    }
+
+    // ==============================
+    // ✅ CALCULATE TOTAL PRICE
+    // ==============================
+    const totalPrice = quantity * product.selling_price;
+
+    // ==============================
+    // ✅ INSERT ORDER
+    // ==============================
+    await db.query(
+      `INSERT INTO orders 
+      (
+        order_id,
+        customer_name,
+        contact_details,
+        product_name,
+        quantity,
+        price,
+        payment_status,
+        order_status,
+        order_date,
+        notes,
+        customer_id,
+        product_id
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        order_id,
+        customer.name,        // ✅ from DB
+        customer.phone,   // ✅ from DB
+        product.name,              // ✅ from DB
+        quantity,
+        totalPrice,                // ✅ calculated
+        payment_status,
+        order_status,
+        order_date,
+        notes,
+        customer_id,               // ✅ relation
+        product_id,                // ✅ relation
+      ]
+    );
+
+    // ==============================
+    // ✅ UPDATE STOCK (AUTO REDUCE)
+    // ==============================
+    await db.query(
+      "UPDATE inventory SET quantity = quantity - ? WHERE id = ?",
+      [quantity, product_id]
+    );
+
+    return NextResponse.json({
+      message: "Order created successfully",
+      order_id,
+    });
+
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Server error" },
+      { status: 500 }
+    );
   }
 }

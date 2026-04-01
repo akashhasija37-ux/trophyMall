@@ -61,3 +61,15 @@ body {
 .actnicon {
   margin-top: 15px;
 }
+:where(.css-dev-only-do-not-override-1daqxe2).ant-select .ant-select-prefix, :where(.css-dev-only-do-not-override-1daqxe2).ant-select .ant-select-suffix{
+  color: #ffffff!important;
+}
+:where(.css-dev-only-do-not-override-1daqxe2).ant-input-number .ant-input-number-input{
+  color: #ffffff!important;
+}
+.hidden {
+    display: none;
+    position: relative;
+    color: wheat;
+    left: 56%;
+}

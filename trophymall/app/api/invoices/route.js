@@ -21,18 +21,40 @@ export async function POST(req) {
     const body = await req.json();
 
     const {
-      customer_name,
+      customer_id,
       invoice_date,
       due_date,
       payment_status,
       items = [],
       discount = 0,
       gst = 0,
+      deposit = 0, // ✅ NEW
       notes = "",
     } = body;
 
     // 🔥 Generate invoice ID
     const invoice_id = `INV-${Date.now()}`;
+
+    // ✅ GET CUSTOMER DETAILS FROM DB
+    let customer_name = null;
+
+    if (customer_id) {
+      const [customerRows] = await db.query(
+        "SELECT name FROM customers WHERE id = ?",
+        [customer_id]
+      );
+
+      if (customerRows.length > 0) {
+        customer_name = customerRows[0].name;
+      }
+    }
+
+    if (!customer_name) {
+      return Response.json(
+        { error: "Customer not found" },
+        { status: 400 }
+      );
+    }
 
     // 🔥 SAFE subtotal calculation
     let subtotal = 0;
@@ -45,28 +67,34 @@ export async function POST(req) {
 
     const discountAmount = subtotal * (Number(discount) / 100);
     const gstAmount = (subtotal - discountAmount) * (Number(gst) / 100);
+
     const total = subtotal - discountAmount + gstAmount;
 
-    // 👉 Insert invoice
+    // ✅ FINAL AFTER DEPOSIT
+    const finalAmount = total - Number(deposit || 0);
+
+    // 👉 INSERT INVOICE
     await db.query(
       `INSERT INTO invoices 
-      (invoice_id, customer_name, invoice_date, due_date, payment_status, subtotal, discount, tax, total_amount, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (invoice_id, customer_id, customer_name, invoice_date, due_date, payment_status, subtotal, discount, tax, deposit, total_amount, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         invoice_id,
+        customer_id,
         customer_name,
         invoice_date,
         due_date,
         payment_status,
         subtotal,
         discountAmount,
-        gstAmount, // storing GST in tax column
-        total,
+        gstAmount,
+        deposit,
+        finalAmount,
         notes,
       ]
     );
 
-    // 👉 Insert items (FIXED)
+    // 👉 INSERT ITEMS
     for (const item of items) {
       const qty = Number(item.qty) || 0;
       const price = Number(item.price) || 0;
@@ -77,8 +105,8 @@ export async function POST(req) {
         VALUES (?, ?, ?, ?, ?)`,
         [
           invoice_id,
-          item.product, // ✅ FIXED
-          qty,          // ✅ FIXED
+          item.product || "",
+          qty,
           price,
           qty * price,
         ]
@@ -88,7 +116,9 @@ export async function POST(req) {
     return Response.json({
       success: true,
       invoice_id,
+      subtotal,
       total,
+      finalAmount,
     });
 
   } catch (err) {

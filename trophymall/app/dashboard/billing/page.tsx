@@ -44,12 +44,18 @@ const [openinvoice,setopeninvoice] =useState(false)
 
 // ✅ NEW STATE
 const [invoiceList,setInvoiceList] = useState<any[]>([])
+const [chartData, setChartData] = useState<any[]>([]);
 
   const badge: any = {
     Paid: "bg-green-500/20 text-green-400",
     Pending: "bg-yellow-500/20 text-yellow-400",
     Overdue: "bg-red-500/20 text-red-400"
   }
+
+   useEffect(()=>{
+    fetchInvoices()
+    fetchRevenue();
+  },[])
 
   // ✅ FETCH API
   const fetchInvoices = async () => {
@@ -62,9 +68,24 @@ const [invoiceList,setInvoiceList] = useState<any[]>([])
     }
   }
 
-  useEffect(()=>{
-    fetchInvoices()
-  },[])
+const fetchRevenue = async () => {
+  try {
+    const res = await fetch("/api/revenue");
+    const data = await res.json();
+
+    // ensure number format
+    const formatted = data.map((d: any) => ({
+      month: d.month,
+      revenue: Number(d.revenue || 0),
+    }));
+
+    setChartData(formatted);
+
+  } catch (err) {
+    console.error("Revenue fetch error:", err);
+  }
+};
+ 
 
   // ✅ FORMAT DATA
   const formattedInvoices = invoiceList.map((i:any)=>({

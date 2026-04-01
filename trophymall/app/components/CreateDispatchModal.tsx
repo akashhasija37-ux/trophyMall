@@ -1,5 +1,5 @@
 "use client";
-
+import { useState, useEffect } from "react";
 import { Modal, Form, Input, Select, DatePicker, Button } from "antd";
 import dayjs from "dayjs";
 import toast from "react-hot-toast";
@@ -16,6 +16,16 @@ export default function CreateDispatchModal({
   refresh?: any;
 }) {
   const [form] = Form.useForm();
+  const [orders, setOrders] = useState<any[]>([]);
+  useEffect(() => {
+  fetchOrders();
+}, []);
+
+const fetchOrders = async () => {
+  const res = await fetch("/api/orders");
+  const data = await res.json();
+  setOrders(data);
+};
 
   const handleSubmit = async (values: any) => {
     try {
@@ -83,7 +93,22 @@ export default function CreateDispatchModal({
             name="orderId"
             rules={[{ required: true, message: "Order ID required" }]}
           >
-            <Input placeholder="ORD-2501" />
+          <Select
+  placeholder="Select Order"
+  onChange={(value) => {
+    const selected = orders.find((o) => o.order_id === value);
+
+    form.setFieldsValue({
+      customerName: selected?.customer_name,
+    });
+  }}
+>
+  {orders.map((o) => (
+    <Select.Option key={o.id} value={o.order_id}>
+      {o.order_id}
+    </Select.Option>
+  ))}
+</Select>
           </Form.Item>
 
           {/* Customer */}
@@ -91,9 +116,9 @@ export default function CreateDispatchModal({
           <Form.Item
             label="Customer Name"
             name="customerName"
-            rules={[{ required: true, message: "Enter customer name" }]}
+            //rules={[{ required: true, message: "Enter customer name" }]}
           >
-            <Input placeholder="Customer name" />
+           <Input placeholder="Customer name" disabled />
           </Form.Item>
 
           {/* Courier */}

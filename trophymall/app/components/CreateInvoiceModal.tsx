@@ -11,13 +11,14 @@ import {
   message
 } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import dayjs from "dayjs";
 
 const { TextArea } = Input;
 
 type InvoiceItem = {
   product: string;
+  product_id?: number;
   qty: number;
   price: number;
   total: number;
@@ -26,7 +27,7 @@ type InvoiceItem = {
 export default function CreateInvoiceModal({
   open,
   setOpen,
-  refresh // ✅ NEW PROP
+  refresh
 }: {
   open: boolean;
   setOpen: any;
@@ -38,104 +39,134 @@ export default function CreateInvoiceModal({
     { product: "", qty: 1, price: 0, total: 0 },
   ]);
 
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+
   const [discount, setDiscount] = useState(0);
   const [gst, setGst] = useState(18);
+  const [deposit, setDeposit] = useState(0); // ✅ NEW
 
-  const updateItem = (
-    index: number,
-    key: keyof InvoiceItem,
-    value: string | number,
-  ) => {
-    const updated = [...items];
-
-    updated[index] = {
-      ...updated[index],
-      [key]: value,
-    };
-
-    updated[index].total =
-      (updated[index].qty || 0) * (updated[index].price || 0);
-
-    setItems(updated);
+  // ✅ FETCH CUSTOMERS
+  const fetchCustomers = async () => {
+    const res = await fetch("/api/customers");
+    const data = await res.json();
+    setCustomers(data);
   };
+
+  // ✅ FETCH PRODUCTS
+  const fetchProducts = async () => {
+  try {
+    const res = await fetch("/api/inventory");
+    const data = await res.json();
+    setProducts(data);
+  } catch (err) {
+    console.error("Inventory fetch error:", err);
+  }
+};
+
+  useEffect(() => {
+    fetchCustomers();
+    fetchProducts();
+  }, []);
+
+  const updateItem = (index: number, key: keyof InvoiceItem, value: any) => {
+  const updated = [...items];
+
+  updated[index] = {
+    ...updated[index],
+    [key]: value,
+  };
+
+  // 🔥 product select → auto price
+  if (key === "product_id") {
+    const selected = products.find((p) => p.id === value);
+
+    if (selected) {
+      updated[index].product = selected.name;
+      updated[index].price = Number(
+        selected.selling_price || selected.price || 0
+      );
+    }
+  }
+
+  // 🔥 recalc total ALWAYS
+  const qty = Number(updated[index].qty || 0);
+  const price = Number(updated[index].price || 0);
+
+  updated[index].total = qty * price;
+
+  setItems(updated);
+};
 
   const addItem = () => {
     setItems([...items, { product: "", qty: 1, price: 0, total: 0 }]);
   };
+  
+  const removeItem = (index: number) => {
+  const updated = [...items];
+
+  // prevent removing last row
+  if (updated.length === 1) return;
+
+  updated.splice(index, 1);
+  setItems(updated);
+};
 
   const subtotal = items.reduce((sum, i) => sum + i.total, 0);
-
   const discountAmount = subtotal * (discount / 100);
-
   const gstAmount = (subtotal - discountAmount) * (gst / 100);
 
+  // ✅ FINAL TOTAL WITH DEPOSIT
   const total = subtotal - discountAmount + gstAmount;
+  const finalPayable = total - deposit;
 
- const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: any) => {
+    const cleanedItems = items.map((i) => ({
+      product: i.product,
+      qty: i.qty,
+      price: i.price,
+      total: i.total,
+    }));
 
-  // ✅ ensure items is always array
-  const safeItems = Array.isArray(items) ? items : [];
+    const invoiceData = {
+      customer_id: values.customer, // ✅ send id
+      invoice_date: dayjs(values.invoiceDate).format("YYYY-MM-DD"),
+      due_date: dayjs(values.dueDate).format("YYYY-MM-DD"),
+      payment_status: values.paymentStatus,
+      notes: values.notes || "",
 
-  // ✅ sanitize items (avoid undefined/null issues)
-  const cleanedItems = safeItems.map((i) => ({
-    product: i.product || "",
-    qty: Number(i.qty || 0),
-    price: Number(i.price || 0),
-    total: Number(i.total || 0),
-  }));
+      items: cleanedItems,
 
-  const invoiceData = {
-    customer_name: values.customer,
+      subtotal,
+      discount,
+      gst,
+      deposit, // ✅ NEW
+      total_amount: finalPayable, // ✅ UPDATED
+    };
 
-    invoice_date: values.invoiceDate
-      ? dayjs(values.invoiceDate).format("YYYY-MM-DD")
-      : null,
+    try {
+      const res = await fetch("/api/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(invoiceData),
+      });
 
-    due_date: values.dueDate
-      ? dayjs(values.dueDate).format("YYYY-MM-DD")
-      : null,
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
 
-    payment_status: values.paymentStatus,
-    notes: values.notes || "",
+      message.success("Invoice created successfully ✅");
 
-    // 🔥 IMPORTANT FIX
-    items: cleanedItems, // ❌ removed JSON.stringify
+      setOpen(false);
+      form.resetFields();
+      setItems([{ product: "", qty: 1, price: 0, total: 0 }]);
+      setDeposit(0);
 
-    subtotal: Number(subtotal || 0),
-    discount: Number(discount || 0),
-    gst: Number(gst || 0),
-    total_amount: Number(total || 0),
+      if (refresh) refresh();
+
+    } catch (err: any) {
+      message.error(err.message);
+    }
   };
-
-  try {
-    const res = await fetch("/api/invoices", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(invoiceData),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) throw new Error(data.error || "Failed");
-
-    message.success("Invoice created successfully ✅");
-
-    setOpen(false);
-    form.resetFields();
-
-    // ✅ reset items safely
-    setItems([{ product: "", qty: 1, price: 0, total: 0 }]);
-
-    // ✅ refresh list
-    if (refresh) refresh();
-
-  } catch (err: any) {
-    console.error(err);
-    message.error(err.message || "Something went wrong ❌");
-  }
-};
 
   return (
     <Modal
@@ -155,88 +186,99 @@ export default function CreateInvoiceModal({
           paymentStatus: "Pending",
         }}
       >
-        {/* Top section */}
 
+        {/* TOP */}
         <div className="grid grid-cols-3 gap-6">
+
+          {/* ✅ CUSTOMER DROPDOWN */}
           <Form.Item
             label="Customer"
             name="customer"
-            rules={[{ required: true, message: "Select customer" }]}
+            rules={[{ required: true }]}
           >
             <Select placeholder="Select customer">
-              <Select.Option value="Acme Corporation">Acme Corporation</Select.Option>
-              <Select.Option value="Tech Solutions Ltd">Tech Solutions Ltd</Select.Option>
+              {customers.map((c) => (
+                <Select.Option key={c.id} value={c.id}>
+                  {c.name}
+                </Select.Option>
+              ))}
             </Select>
           </Form.Item>
 
-          <Form.Item
-            label="Invoice Date"
-            name="invoiceDate"
-            rules={[{ required: true }]}
-          >
+          <Form.Item label="Invoice Date" name="invoiceDate" rules={[{ required: true }]}>
             <DatePicker style={{ width: "100%" }} />
           </Form.Item>
 
-          <Form.Item
-            label="Due Date"
-            name="dueDate"
-            rules={[{ required: true }]}
-          >
+          <Form.Item label="Due Date" name="dueDate" rules={[{ required: true }]}>
             <DatePicker style={{ width: "100%" }} />
           </Form.Item>
         </div>
 
-        {/* Products */}
-
+        {/* PRODUCTS */}
         <div className="mt-6">
           <div className="flex justify-between mb-3">
             <h3 className="text-white font-semibold">Products / Services</h3>
 
-            <button
-              type="button"
-              onClick={addItem}
-              className="text-green-500 flex items-center gap-1"
-            >
+            <button type="button" onClick={addItem} className="text-green-500">
               <PlusOutlined /> Add Item
             </button>
           </div>
 
-          <div className="space-y-3">
-            {items.map((item, index) => (
-              <div
-                key={index}
-                className="grid grid-cols-4 gap-4 bg-zinc-800 p-3 rounded"
-              >
-                <Input
-                  placeholder="Product/service name"
-                  value={item.product}
-                  onChange={(e) => updateItem(index, "product", e.target.value)}
-                />
+        <div className="space-y-3">
+  {items.map((item, index) => (
+    <div
+      key={index}
+      className="grid grid-cols-5 gap-4 bg-zinc-800 p-3 rounded items-center"
+    >
 
-                <InputNumber
-                  min={1}
-                  value={item.qty}
-                  onChange={(v) => updateItem(index, "qty", v ?? 0)}
-                  style={{ width: "100%" }}
-                />
+      {/* PRODUCT */}
+      <Select
+        placeholder="Select product"
+        value={item.product_id}
+        onChange={(v) => updateItem(index, "product_id", v)}
+      >
+        {products.map((p) => (
+          <Select.Option key={p.id} value={p.id}>
+            {p.name}
+          </Select.Option>
+        ))}
+      </Select>
 
-                <InputNumber
-                  min={0}
-                  value={item.price}
-                  onChange={(v) => updateItem(index, "price", v ?? 0)}
-                  style={{ width: "100%" }}
-                />
+      {/* QTY */}
+      <InputNumber
+        min={1}
+        value={item.qty}
+        onChange={(v) => updateItem(index, "qty", v)}
+        style={{ width: "100%" }}
+      />
 
-                <div className="flex items-center text-white">
-                  ₹{item.total.toFixed(2)}
-                </div>
-              </div>
-            ))}
-          </div>
+      {/* PRICE (AUTO) */}
+      <InputNumber
+        value={item.price}
+        disabled
+        style={{ width: "100%" }}
+      />
+
+      {/* TOTAL */}
+      <div className="text-white font-medium">
+        ₹{item.total.toFixed(2)}
+      </div>
+
+      {/* REMOVE BUTTON */}
+      <button
+        type="button"
+        onClick={() => removeItem(index)}
+        className="text-red-500 hover:text-red-400 text-sm"
+      >
+        Remove
+      </button>
+
+    </div>
+  ))}
+</div>
         </div>
 
-        {/* Bottom section */}
-
+        {/* SUMMARY */}
         <div className="grid grid-cols-2 gap-8 mt-6">
 
           <div>
@@ -248,75 +290,56 @@ export default function CreateInvoiceModal({
             </Form.Item>
 
             <Form.Item label="Invoice Notes" name="notes">
-              <TextArea
-                rows={5}
-                placeholder="Add terms, conditions, or special notes..."
-              />
+              <TextArea rows={5} />
             </Form.Item>
           </div>
 
           <div className="bg-zinc-800 p-6 rounded-lg">
-            <h3 className="text-white text-lg mb-4">Invoice Summary</h3>
 
-            <div className="flex justify-between mb-2 text-white">
+            <div className="flex justify-between text-white mb-2">
               <span>Subtotal</span>
               <span>₹{subtotal.toFixed(2)}</span>
             </div>
 
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-white">Discount</span>
-
-              <div className="flex items-center gap-2">
-                <InputNumber
-                  min={0}
-                  value={discount}
-                  onChange={(v) => setDiscount(v || 0)}
-                />
-                <span>%</span>
-              </div>
+            <div className="flex justify-between mb-2">
+              <span className="text-white">Discount (%)</span>
+              <InputNumber value={discount} onChange={(v) => setDiscount(v || 0)} />
             </div>
 
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-white">Tax (GST)</span>
-
-              <Select
-                value={gst}
-                style={{ width: 120 }}
-                onChange={(v) => setGst(v)}
-              >
+            <div className="flex justify-between mb-2">
+              <span className="text-white">GST</span>
+              <Select value={gst} onChange={(v) => setGst(v)}>
                 <Select.Option value={5}>5%</Select.Option>
                 <Select.Option value={12}>12%</Select.Option>
                 <Select.Option value={18}>18%</Select.Option>
               </Select>
             </div>
 
-            <div className="border-t border-zinc-600 pt-4 flex justify-between text-lg">
-              <span className="text-white font-semibold">Total Amount</span>
+            {/* ✅ NEW FIELD */}
+            <div className="flex justify-between mb-2">
+              <span className="text-white">Deposited Amount</span>
+              <InputNumber
+                value={deposit}
+                onChange={(v) => setDeposit(v || 0)}
+              />
+            </div>
 
+            <div className="border-t mt-4 pt-3 flex justify-between text-lg">
+              <span className="text-white font-semibold">Final Payable</span>
               <span className="text-green-500 font-bold">
-                ₹{total.toFixed(2)}
+                ₹{finalPayable.toFixed(2)}
               </span>
             </div>
-          </div>
 
+          </div>
         </div>
 
-        {/* Footer */}
-
         <div className="flex gap-4 mt-6">
-          <Button
-            htmlType="submit"
-            className="bg-green-600 border-none hover:bg-green-700"
-          >
+          <Button htmlType="submit" className="bg-green-600 text-white">
             Save Invoice
           </Button>
 
-          <Button
-            onClick={() => setOpen(false)}
-            className="bg-zinc-700 text-white border-none"
-          >
-            Cancel
-          </Button>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
         </div>
 
       </Form>

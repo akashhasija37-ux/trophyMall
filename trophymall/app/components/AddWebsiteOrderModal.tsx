@@ -1,7 +1,16 @@
 "use client";
-import { Modal, Form, Input, InputNumber, Select, DatePicker, Button } from "antd";
+
+import { useState, useEffect } from "react";
+import {
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  DatePicker,
+  Button,
+} from "antd";
 import dayjs from "dayjs";
-import { useState } from "react";
 import toast from "react-hot-toast";
 
 const { Option } = Select;
@@ -13,22 +22,55 @@ type AddWebsiteOrderProps = {
   refresh: () => void;
 };
 
-export default function AddWebsiteOrder({ open, setOpen, refresh }: AddWebsiteOrderProps) {
+export default function AddWebsiteOrder({
+  open,
+  setOpen,
+  refresh,
+}: AddWebsiteOrderProps) {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (values: any) => {
-    const toastId = toast.loading("Saving order...");
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [quantity, setQuantity] = useState(0);
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
+  // ✅ FETCH DATA
+  useEffect(() => {
+    fetchCustomers();
+    fetchProducts();
+  }, []);
+
+  const fetchCustomers = async () => {
+  const res = await fetch("/api/customers");
+  const data = await res.json();
+  setCustomers(data);
+};
+
+  const fetchProducts = async () => {
+    const res = await fetch("/api/inventory");
+    const data = await res.json();
+    setProducts(data);
+  };
+
+  // ✅ HANDLE SUBMIT
+  const handleSubmit = async (values: any) => {
+    // 🔥 STOCK VALIDATION
+    if (values.quantity > selectedProduct?.quantity) {
+      toast.error("❌ Not enough stock available");
+      return;
+    }
+
+    const toastId = toast.loading("Saving order...");
     setLoading(true);
 
     try {
       const payload = {
-        customer_name: values.customerName,
-        contact_details: values.contact,
-        product_name: values.productName,
+        customer_id: selectedCustomer?.id,
+        product_id: selectedProduct?.id,
         quantity: values.quantity,
-        price: values.price,
+        price: selectedProduct?.price,
         payment_status: values.paymentStatus,
         order_status: values.orderStatus,
         order_date: values.orderDate
@@ -51,12 +93,13 @@ export default function AddWebsiteOrder({ open, setOpen, refresh }: AddWebsiteOr
         toast.success("Order created successfully ✅", { id: toastId });
 
         form.resetFields();
+        setSelectedCustomer(null);
+        setSelectedProduct(null);
+
         setOpen(false);
-        refresh(); // 🔥 update orders table
+        refresh();
       } else {
-        toast.error(data.error || "Failed to create order ❌", {
-          id: toastId,
-        });
+        toast.error(data.error || "Failed ❌", { id: toastId });
       }
     } catch (err) {
       console.error(err);
@@ -87,51 +130,107 @@ export default function AddWebsiteOrder({ open, setOpen, refresh }: AddWebsiteOr
         }}
         style={{ color: "white" }}
       >
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div
+          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
+        >
+          {/* ✅ CUSTOMER SELECT */}
           <Form.Item
             label="Customer Name"
             name="customerName"
-            rules={[{ required: true, message: "Please enter customer name" }]}
+            rules={[{ required: true }]}
           >
-            <Input placeholder="Customer name" />
+            <Select
+              placeholder="Select Customer"
+              onChange={(value) => {
+                const selected = customers.find((c) => c.id === value);
+                setSelectedCustomer(selected);
+
+                // ✅ AUTO FILL CONTACT
+                form.setFieldsValue({
+                  contact: selected?.phone,
+                });
+              }}
+              style={{ color: "white" }}
+            >
+              {customers.map((c) => (
+                <Option key={c.id} value={c.id}>
+                  {c.name}
+                </Option>
+              ))}
+            </Select>
           </Form.Item>
 
+          {/* ✅ CONTACT AUTO */}
           <Form.Item
             label="Contact Details"
             name="contact"
-            rules={[{ required: true, message: "Enter email or phone" }]}
+            rules={[{ required: true }]}
           >
-            <Input placeholder="Email or phone" />
+            <Input disabled />
           </Form.Item>
 
           <Form.Item label="Order ID" name="orderId">
             <Input disabled />
           </Form.Item>
 
+          {/* ✅ PRODUCT SELECT */}
           <Form.Item
             label="Product Name"
-            name="productName"
-            rules={[{ required: true, message: "Enter product name" }]}
+            name="product_id"
+            rules={[{ required: true }]}
           >
-            <Input placeholder="Product name" />
+            <Select
+              placeholder="Select product"
+              onChange={(value) => {
+                const product = products.find((p: any) => p.id === value);
+                setSelectedProduct(product);
+
+                // Reset quantity
+                setQuantity(0);
+
+                // Reset price
+                form.setFieldsValue({ price: 0 });
+              }}
+            >
+              {products.map((p: any) => (
+                <Select.Option key={p.id} value={p.id}>
+                  {p.name} (Stock: {p.quantity})
+                </Select.Option>
+              ))}
+            </Select>
           </Form.Item>
 
+          {/* ✅ QUANTITY */}
           <Form.Item
             label="Quantity"
             name="quantity"
-            rules={[{ required: true, message: "Enter quantity" }]}
+            rules={[{ required: true }]}
+           
           >
-            <InputNumber style={{ width: "100%" }} min={1} />
+            <InputNumber
+              style={{ width: "100%", color:'white' }}
+              className="valstyle"
+              min={1}
+              onChange={(val: any) => {
+                setQuantity(val);
+
+                if (selectedProduct) {
+                  const total = val * selectedProduct.selling_price;
+
+                  form.setFieldsValue({
+                    price: total,
+                  });
+                }
+              }}
+            />
           </Form.Item>
 
-          <Form.Item
-            label="Price"
-            name="price"
-            rules={[{ required: true, message: "Enter price" }]}
-          >
-            <InputNumber style={{ width: "100%" }} min={0} placeholder="₹" />
+          {/* ✅ PRICE AUTO */}
+          <Form.Item label="Price" name="price" rules={[{ required: true }]}>
+            <InputNumber style={{ width: "100%" }} className="valstyle" min={0} disabled color="white" />
           </Form.Item>
 
+          {/* ✅ PAYMENT */}
           <Form.Item
             label="Payment Status"
             name="paymentStatus"
@@ -144,10 +243,12 @@ export default function AddWebsiteOrder({ open, setOpen, refresh }: AddWebsiteOr
             </Select>
           </Form.Item>
 
+          {/* ✅ DATE */}
           <Form.Item label="Order Date" name="orderDate">
             <DatePicker style={{ width: "100%" }} />
           </Form.Item>
 
+          {/* ✅ STATUS */}
           <Form.Item
             label="Order Status"
             name="orderStatus"
@@ -163,10 +264,12 @@ export default function AddWebsiteOrder({ open, setOpen, refresh }: AddWebsiteOr
           </Form.Item>
         </div>
 
+        {/* NOTES */}
         <Form.Item label="Notes" name="notes">
           <TextArea rows={4} placeholder="Add any additional notes..." />
         </Form.Item>
 
+        {/* BUTTONS */}
         <div style={{ display: "flex", gap: 10 }}>
           <Button
             htmlType="submit"

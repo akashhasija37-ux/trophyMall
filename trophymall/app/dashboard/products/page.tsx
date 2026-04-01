@@ -25,7 +25,7 @@ export default function ProductsPage() {
   return (
    
 
-    <div className="flex min-h-screen bg-black">
+    <div className="flex min-h-screen bg-black color-light">
 
   <Sidebar />
 

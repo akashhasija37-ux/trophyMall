@@ -124,6 +124,7 @@ export default function OrdersPage() {
                 <option>Pending</option>
                 <option>Confirmed</option>
                 <option>Shipped</option>
+                 <option>Delivered</option>
               </select>
 
               <select className="bg-zinc-900 border border-zinc-700 px-3 py-2 rounded-lg text-white">
