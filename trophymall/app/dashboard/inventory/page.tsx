@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Sidebar from "@/app/components/sidebar";
 import Topbar from "@/app/components/topbar";
 import AddStockItemModal from "@/app/components/AddStockItemModal";
+import EditStockModal from "@/app/components/EditStockModal";
 import {
   AlertTriangle,
   Package,
@@ -34,7 +35,7 @@ type InventoryItem = {
 export default function InventoryPage() {
   const [openStock, setOpenStock] = useState(false);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
-
+  const [openEditStock, setOpenEditStock] = useState(false);
   // 🔥 NEW STATES
   const [filter, setFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -83,7 +84,6 @@ export default function InventoryPage() {
         <Topbar />
 
         <div className="p-8 space-y-8">
-
           {/* HEADER */}
           <div className="flex justify-between items-center">
             <div>
@@ -115,6 +115,21 @@ export default function InventoryPage() {
                 refresh={fetchInventory}
                 item={selectedItem} // 🔥 pass for edit
               />
+
+              {openEditStock && selectedItem && (
+                <EditStockModal
+                  product={{
+                    id: selectedItem.id,
+                    name: selectedItem.name,
+                    quantity: selectedItem.quantity,
+                  }}
+                  onClose={() => {
+                    setOpenEditStock(false);
+                    setSelectedItem(null);
+                  }}
+                  onSuccess={fetchInventory}
+                />
+              )}
             </div>
           </div>
 
@@ -124,7 +139,8 @@ export default function InventoryPage() {
               <AlertTriangle className="text-yellow-400" />
               <div>
                 <p className="text-yellow-400 font-medium">
-                  {inventory.filter(i => i.quantity <= 5).length} items are running low or critical
+                  {inventory.filter((i) => i.quantity <= 5).length} items are
+                  running low or critical
                 </p>
                 <p className="text-yellow-300/80 text-sm">
                   Review inventory levels and place reorder requests
@@ -142,7 +158,6 @@ export default function InventoryPage() {
 
           {/* STATS */}
           <div className="grid grid-cols-4 gap-6">
-
             <StatCard
               title="Total Products"
               value={inventory.length}
@@ -153,7 +168,10 @@ export default function InventoryPage() {
 
             <StatCard
               title="Low Stock Items"
-              value={inventory.filter(i => i.quantity <= 5 && i.quantity > 0).length}
+              value={
+                inventory.filter((i) => i.quantity <= 5 && i.quantity > 0)
+                  .length
+              }
               note="Requires attention"
               icon={<TrendingDown className="text-yellow-400" />}
               onClick={() => setFilter("low")}
@@ -161,7 +179,9 @@ export default function InventoryPage() {
 
             <StatCard
               title="Raw Materials"
-              value={inventory.filter(i => i.category === "Raw Material").length}
+              value={
+                inventory.filter((i) => i.category === "Raw Material").length
+              }
               note="Available materials"
               icon={<Warehouse className="text-purple-400" />}
               onClick={() => setCategoryFilter("Raw Material")}
@@ -169,19 +189,16 @@ export default function InventoryPage() {
 
             <StatCard
               title="Out of Stock"
-              value={inventory.filter(i => i.quantity === 0).length}
+              value={inventory.filter((i) => i.quantity === 0).length}
               note="Needs restock"
               icon={<Archive className="text-red-400" />}
               onClick={() => setFilter("out")}
             />
-
           </div>
 
           {/* FILTERS */}
           <div className="flex justify-between">
-
             <div className="flex gap-3">
-
               <button
                 onClick={() => setCategoryFilter("all")}
                 className={`px-4 py-2 rounded-lg ${
@@ -214,7 +231,6 @@ export default function InventoryPage() {
               >
                 Raw Materials
               </button>
-
             </div>
 
             <div className="flex gap-3">
@@ -228,7 +244,6 @@ export default function InventoryPage() {
                 Filters
               </button>
             </div>
-
           </div>
 
           {/* TABLE */}
@@ -259,9 +274,7 @@ export default function InventoryPage() {
                         {item.quantity}
                       </td>
 
-                      <td className="text-gray-300">
-                        {item.supplier || "-"}
-                      </td>
+                      <td className="text-gray-300">{item.supplier || "-"}</td>
 
                       <td>
                         <span
@@ -269,8 +282,8 @@ export default function InventoryPage() {
                             status === "In Stock"
                               ? "bg-green-500/20 text-green-400"
                               : status === "Low Stock"
-                              ? "bg-yellow-500/20 text-yellow-400"
-                              : "bg-red-500/20 text-red-400"
+                                ? "bg-yellow-500/20 text-yellow-400"
+                                : "bg-red-500/20 text-red-400"
                           }`}
                         >
                           {status}
@@ -289,7 +302,7 @@ export default function InventoryPage() {
                           className="cursor-pointer hover:text-green-400"
                           onClick={() => {
                             setSelectedItem(item);
-                            setOpenStock(true);
+                            setOpenEditStock(true);
                           }}
                         />
                       </td>
@@ -299,7 +312,6 @@ export default function InventoryPage() {
               </tbody>
             </table>
           </div>
-
         </div>
       </div>
     </div>

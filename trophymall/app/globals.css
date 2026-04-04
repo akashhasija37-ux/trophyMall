@@ -73,3 +73,25 @@ body {
     color: wheat;
     left: 56%;
 }
+
+.dark-ant-modal .ant-modal-content {
+  background-color: #18181b;
+  color: white;
+}
+
+.dark-ant-modal .ant-modal-header {
+  background-color: #18181b;
+  color: white;
+}
+
+.dark-ant-modal .ant-modal-title {
+  color: white;
+}
+
+.dark-ant-modal .ant-input,
+.dark-ant-modal .ant-select-selector,
+.dark-ant-modal .ant-picker {
+  background-color: #27272a !important;
+  color: white !important;
+  border-color: #3f3f46 !important;
+}

@@ -94,11 +94,11 @@ export async function PUT(req) {
     );
 
     // 🧾 OPTIONAL: inventory log (recommended)
-    await db.query(
-      `INSERT INTO inventory_logs (product_id, change_value, type, note)
-       VALUES (?, ?, ?, ?)`,
-      [id, change, type || "UPDATE", note || null]
-    );
+    // await db.query(
+    //   `INSERT INTO inventory_logs (product_id, change_value, type, note)
+    //    VALUES (?, ?, ?, ?)`,
+    //   [id, change, type || "UPDATE", note || null]
+    // );
 
     return Response.json({
       message: "Inventory updated successfully",
