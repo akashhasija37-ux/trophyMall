@@ -95,3 +95,6 @@ body {
   color: white !important;
   border-color: #3f3f46 !important;
 }
+input.ant-input-number-input{
+  color: #fff!important;
+}
