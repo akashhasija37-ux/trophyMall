@@ -117,7 +117,10 @@ export default function DashboardPage() {
       map[status] = (map[status] || 0) + 1;
     });
 
-    const max = Math.max(...Object.values(map), 1);
+   const max = Math.max(
+  ...Object.values(map).map((v) => Number(v)),
+  1
+);
 
     const colors = [
       "bg-green-600",

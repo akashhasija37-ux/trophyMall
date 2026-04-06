@@ -8,8 +8,9 @@ const { TextArea } = Input;
 
 type AddStockItemModalProps = {
   open: boolean;
-  setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  refresh: () => void; // 🔥 important for updating UI
+  setOpen: any;
+  refresh: () => Promise<void>;
+  item?: any; // ✅ FIX
 };
 
 export default function AddStockItemModal({
