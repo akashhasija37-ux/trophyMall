@@ -17,15 +17,26 @@ export default function CreateDispatchModal({
 }) {
   const [form] = Form.useForm();
   const [orders, setOrders] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   useEffect(() => {
-  fetchOrders();
-}, []);
+    fetchOrders();
+    fetchEmployees();
+  }, []);
 
-const fetchOrders = async () => {
-  const res = await fetch("/api/orders");
-  const data = await res.json();
-  setOrders(data);
-};
+  const fetchOrders = async () => {
+    const res = await fetch("/api/orders");
+    const data = await res.json();
+    setOrders(data);
+  };
+  const fetchEmployees = async () => {
+    try {
+      const res = await fetch("/api/employees");
+      const data = await res.json();
+      setEmployees(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleSubmit = async (values: any) => {
     try {
@@ -93,22 +104,22 @@ const fetchOrders = async () => {
             name="orderId"
             rules={[{ required: true, message: "Order ID required" }]}
           >
-          <Select
-  placeholder="Select Order"
-  onChange={(value) => {
-    const selected = orders.find((o) => o.order_id === value);
+            <Select
+              placeholder="Select Order"
+              onChange={(value) => {
+                const selected = orders.find((o) => o.order_id === value);
 
-    form.setFieldsValue({
-      customerName: selected?.customer_name,
-    });
-  }}
->
-  {orders.map((o) => (
-    <Select.Option key={o.id} value={o.order_id}>
-      {o.order_id}
-    </Select.Option>
-  ))}
-</Select>
+                form.setFieldsValue({
+                  customerName: selected?.customer_name,
+                });
+              }}
+            >
+              {orders.map((o) => (
+                <Select.Option key={o.id} value={o.order_id}>
+                  {o.order_id}
+                </Select.Option>
+              ))}
+            </Select>
           </Form.Item>
 
           {/* Customer */}
@@ -118,7 +129,7 @@ const fetchOrders = async () => {
             name="customerName"
             //rules={[{ required: true, message: "Enter customer name" }]}
           >
-           <Input placeholder="Customer name" disabled />
+            <Input placeholder="Customer name" disabled />
           </Form.Item>
 
           {/* Courier */}
@@ -171,7 +182,13 @@ const fetchOrders = async () => {
           {/* Assigned Staff */}
 
           <Form.Item label="Assigned Staff" name="staff">
-            <Input placeholder="Staff member name" />
+            <Select
+              placeholder="Select Staff"
+              options={employees.map((e: any) => ({
+                label: e.name,
+                value: e.id,
+              }))}
+            />
           </Form.Item>
 
           {/* Notes */}

@@ -4,7 +4,13 @@ import db from "../../../backend/config/db";
 export async function GET() {
   try {
     const [rows] = await db.query(`
-      SELECT * FROM invoices ORDER BY id DESC
+      SELECT 
+  invoices.*,
+  employees.name AS salesperson_name
+FROM invoices
+LEFT JOIN employees 
+  ON invoices.salesperson_id = employees.id
+ORDER BY invoices.id DESC
     `);
 
     return Response.json(rows);
@@ -15,7 +21,7 @@ export async function GET() {
   }
 }
 
-// ✅ CREATE INVOICE
+// ✅ CREATE INVOICE + PRINTING JOB
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -28,14 +34,16 @@ export async function POST(req) {
       items = [],
       discount = 0,
       gst = 0,
-      deposit = 0, // ✅ NEW
+      deposit = 0,
       notes = "",
+      salesperson_id,   // ✅ NEW
+      assigned_to,      // ✅ NEW
     } = body;
 
     // 🔥 Generate invoice ID
     const invoice_id = `INV-${Date.now()}`;
 
-    // ✅ GET CUSTOMER DETAILS FROM DB
+    // ✅ GET CUSTOMER NAME
     let customer_name = null;
 
     if (customer_id) {
@@ -56,7 +64,7 @@ export async function POST(req) {
       );
     }
 
-    // 🔥 SAFE subtotal calculation
+    // 🔥 CALCULATE TOTALS
     let subtotal = 0;
 
     items.forEach((item) => {
@@ -67,17 +75,14 @@ export async function POST(req) {
 
     const discountAmount = subtotal * (Number(discount) / 100);
     const gstAmount = (subtotal - discountAmount) * (Number(gst) / 100);
-
     const total = subtotal - discountAmount + gstAmount;
-
-    // ✅ FINAL AFTER DEPOSIT
     const finalAmount = total - Number(deposit || 0);
 
-    // 👉 INSERT INVOICE
+    // ✅ INSERT INVOICE (UPDATED)
     await db.query(
       `INSERT INTO invoices 
-      (invoice_id, customer_id, customer_name, invoice_date, due_date, payment_status, subtotal, discount, tax, deposit, total_amount, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (invoice_id, customer_id, customer_name, invoice_date, due_date, payment_status, subtotal, discount, tax, deposit, total_amount, notes, salesperson_id, assigned_to)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         invoice_id,
         customer_id,
@@ -91,6 +96,8 @@ export async function POST(req) {
         deposit,
         finalAmount,
         notes,
+        salesperson_id || null,
+        assigned_to || null,
       ]
     );
 
@@ -103,12 +110,51 @@ export async function POST(req) {
         `INSERT INTO invoice_items 
         (invoice_id, product_name, quantity, price, total)
         VALUES (?, ?, ?, ?, ?)`,
+
         [
           invoice_id,
           item.product || "",
           qty,
           price,
           qty * price,
+        ]
+      );
+    }
+
+    // 🔥 CREATE PRINTING JOB (IMPORTANT)
+    if (assigned_to) {
+      // 👉 get employee name
+      let employeeName = null;
+
+      const [empRows] = await db.query(
+        "SELECT name FROM employees WHERE id = ?",
+        [assigned_to]
+      );
+
+      if (empRows.length > 0) {
+        employeeName = empRows[0].name;
+      }
+
+      // 👉 create job title from first product
+      const firstItem = items[0]?.product || "Custom Job";
+
+      const jobTitle = `${firstItem} Print`;
+
+      await db.query(
+        `INSERT INTO printing_jobs
+        (job_title, customer_name, order_reference, assigned_employee, priority_level, start_date, deadline, job_status, job_description)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+
+        [
+          jobTitle,
+          customer_name,
+          invoice_id,
+          employeeName,
+          "Medium Priority",
+          invoice_date,
+          due_date,
+          "Pending",
+          notes || `Print job for ${customer_name}`,
         ]
       );
     }

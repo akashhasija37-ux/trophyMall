@@ -88,6 +88,7 @@ const fetchRevenue = async () => {
  
 
   // ✅ FORMAT DATA
+  console.log(invoiceList)
   const formattedInvoices = invoiceList.map((i:any)=>({
     id: i.invoice_id,
     customer: i.customer_name,
@@ -95,14 +96,16 @@ const fetchRevenue = async () => {
     amount: `₹${Number(i.total_amount)}`,
     status: i.payment_status,
     date: i.due_date ? new Date(i.due_date).toLocaleDateString() : "-",
-    salesperson: "-"
+    salesperson: i.salesperson_name
   }))
 
   // ✅ STATS CALCULATION
-  const totalRevenue = invoiceList.reduce(
-    (sum, i:any) => sum + Number(i.total_amount || 0),
-    0
-  )
+ const totalRevenue = invoiceList.reduce(
+  (sum, i: any) => sum + Number(i.total_amount || 0),
+  0
+);
+
+const formattedRevenue = totalRevenue.toFixed(2);
 
   const pendingAmount = invoiceList
     .filter((i:any)=>i.payment_status==="Pending")
@@ -166,7 +169,7 @@ const fetchRevenue = async () => {
                 </div>
 
                 <p className="text-gray-400 text-sm">Total Revenue</p>
-                <h2 className="text-3xl font-bold text-white">₹{totalRevenue}</h2>
+                <h2 className="text-3xl font-bold text-white">₹{formattedRevenue}</h2>
                 <p className="text-green-400 text-sm">+12.5%</p>
               </div>
 
@@ -237,7 +240,7 @@ const fetchRevenue = async () => {
                    <tr>
                      <th className="text-left pb-3">Invoice ID</th>
                      <th className="text-left">Customer</th>
-                     <th className="text-left">Branch</th>
+                     {/* <th className="text-left">Branch</th> */}
                      <th className="text-left">Amount</th>
                      <th className="text-left">Status</th>
                      <th className="text-left">Due Date</th>
@@ -251,7 +254,7 @@ const fetchRevenue = async () => {
                      <tr key={idx} className="border-t border-zinc-800">
                        <td className="py-4 text-blue-400">{i.id}</td>
                        <td className="text-white">{i.customer}</td>
-                       <td className="text-white">{i.branch}</td>
+                       {/* <td className="text-white">{i.branch}</td> */}
                        <td className="text-white">{i.amount}</td>
          
                        <td>
