@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Sidebar from "@/app/components/sidebar";
 import Topbar from "@/app/components/topbar";
+import { isAdmin } from "@/utils/auth";
 
 import {
   Box,
@@ -35,7 +37,7 @@ export default function DashboardPage() {
   const [revenueData, setRevenueData] = useState<any[]>([]);
   const [departmentData, setDepartmentData] = useState<any[]>([]);
   const [workflow, setWorkflow] = useState<any[]>([]);
-
+const router = useRouter();
   const statusColor: any = {
     Delivered: "text-green-400 bg-green-500/20",
     Processing: "text-blue-400 bg-blue-500/20",
@@ -57,6 +59,13 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+
+     const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+     if (!isAdmin()) {
+      router.replace("/dashboard/leads"); // 🔥 redirect employee
+    }
+
     fetchDashboard();
   }, []);
 

@@ -161,6 +161,39 @@ export default function AddEmployeeModal({ open, setOpen }: any) {
             </Checkbox.Group>
           </Form.Item>
 
+          <Form.Item shouldUpdate={(prev, curr) => prev.permissions !== curr.permissions}>
+  {({ getFieldValue }) => {
+    const permissions = getFieldValue("permissions") || [];
+
+    if (!permissions.length) return null;
+
+    return (
+      <div className="grid grid-cols-2 gap-6 mt-4">
+        {/* Email */}
+        <Form.Item
+          label="Login Email"
+          name="email"
+          rules={[
+            { required: true, message: "Enter email" },
+            { type: "email", message: "Invalid email" },
+          ]}
+        >
+          <Input placeholder="Enter login email" />
+        </Form.Item>
+
+        {/* Password */}
+        <Form.Item
+          label="Password"
+          name="password"
+          rules={[{ required: true, message: "Enter password" }]}
+        >
+          <Input.Password placeholder="Enter password" />
+        </Form.Item>
+      </div>
+    );
+  }}
+</Form.Item>
+
         </div>
 
         <div className="flex gap-4 mt-4">

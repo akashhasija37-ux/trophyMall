@@ -5,45 +5,44 @@ export async function POST(req) {
     const body = await req.json();
 
     const {
-      name,
+      employeeName,
       contact,
       role,
       department,
       branch,
-      joining_date,
-      permissions,
+      joiningDate,
+      permissions = [],
+      email,
+      password,
     } = body;
 
-    if (!name || !contact || !role || !department || !branch) {
-      return Response.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
+    let hashedPassword = null;
+
+    if (email && password) {
+      hashedPassword = await bcrypt.hash(password, 10);
     }
 
     await db.query(
       `INSERT INTO employees 
-      (name, contact, role, department, branch, joining_date, permissions)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      (name, contact, role, department, branch, joining_date, permissions, email, password)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        name,
+        employeeName,
         contact,
         role,
         department,
         branch,
-        joining_date,
+        joiningDate,
         JSON.stringify(permissions),
+        email || null,
+        hashedPassword,
       ]
     );
 
-    return Response.json({ message: "Employee created successfully" });
+    return Response.json({ message: "Employee created" });
 
   } catch (err) {
-    console.error("EMPLOYEE CREATE ERROR:", err);
-    return Response.json(
-      { error: err.message },
-      { status: 500 }
-    );
+    return Response.json({ error: err.message }, { status: 500 });
   }
 }
 
