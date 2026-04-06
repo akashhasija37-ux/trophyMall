@@ -266,7 +266,7 @@ const handleSubmit = async (values: any) => {
                   min={1}
                   value={item.qty}
                   onChange={(v) => updateItem(index, "qty", v)}
-                  style={{ width: "100%" }}
+                  style={{ width: "100%",color:'white' }}
                 />
 
                 {/* PRICE (AUTO) */}
