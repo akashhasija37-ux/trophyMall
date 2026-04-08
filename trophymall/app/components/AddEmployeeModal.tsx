@@ -50,6 +50,8 @@ export default function AddEmployeeModal({ open, setOpen }: any) {
         branch: values.branch,
         joining_date: values.joiningDate.format("YYYY-MM-DD"),
         permissions: permissionsObject,
+        email: values.email,
+        password: values.password
       });
 
       toast.success("Employee created 🎉");
