@@ -1,10 +1,13 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import StatusBadge from "./components/Statusbadge";
 import Sidebar from "@/app/components/sidebar";
 import Topbar from "@/app/components/topbar";
 import AddWebsiteOrderModal from "../../components/AddWebsiteOrderModal";
 import dayjs from "dayjs";
+import { ShoppingCart, Clock, Truck, IndianRupee } from "lucide-react";
+
 type Order = {
   id: number;
   order_id: string;
@@ -22,6 +25,13 @@ type Order = {
 export default function OrdersPage() {
   const [open, setOpen] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [dateFilter, setDateFilter] = useState("All");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
+  const itemsPerPage = 5;
 
   // 🔥 Fetch Orders
   const fetchOrders = async () => {
@@ -30,7 +40,7 @@ export default function OrdersPage() {
       const data = await res.json();
       setOrders(data);
     } catch (err) {
-      console.error("API Error:", err);
+      console.error(err);
     }
   };
 
@@ -38,24 +48,47 @@ export default function OrdersPage() {
     fetchOrders();
   }, []);
 
+  // ✅ FILTER + SEARCH
+  const processedOrders = orders.filter((o) => {
+    const searchMatch =
+      o.order_id?.toLowerCase().includes(search.toLowerCase()) ||
+      o.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
+      o.product_name?.toLowerCase().includes(search.toLowerCase()) ||
+      o.contact_details?.toLowerCase().includes(search.toLowerCase());
+
+    const statusMatch =
+      statusFilter === "All" || o.order_status === statusFilter;
+
+    let dateMatch = true;
+
+    if (dateFilter === "7") {
+      dateMatch = dayjs(o.order_date).isAfter(dayjs().subtract(7, "day"));
+    } else if (dateFilter === "30") {
+      dateMatch = dayjs(o.order_date).isAfter(dayjs().subtract(30, "day"));
+    }
+
+    return searchMatch && statusMatch && dateMatch;
+  });
+
+  const totalPages = Math.ceil(processedOrders.length / itemsPerPage);
+
+  const paginatedOrders = processedOrders.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+
   return (
     <div className="flex min-h-screen bg-zinc-950">
-      {/* SIDEBAR */}
       <Sidebar />
 
-      {/* MAIN AREA */}
       <div className="flex-1 flex flex-col">
-        {/* TOPBAR */}
         <Topbar />
 
-        {/* PAGE CONTENT */}
         <div className="p-8 space-y-8">
           {/* HEADER */}
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-white">
-                Website Orders
-              </h1>
+              <h1 className="text-3xl font-bold text-white">Website Orders</h1>
               <p className="text-gray-400 text-sm">
                 Track and manage all online orders
               </p>
@@ -68,7 +101,6 @@ export default function OrdersPage() {
               + New Order
             </button>
 
-            {/* ✅ Modal with refresh */}
             <AddWebsiteOrderModal
               open={open}
               setOpen={setOpen}
@@ -81,7 +113,8 @@ export default function OrdersPage() {
             <Card
               title="Total Orders"
               value={orders.length}
-              color="text-red-500"
+              color="text-green-500"
+              icon={<ShoppingCart />}
             />
 
             <Card
@@ -89,24 +122,25 @@ export default function OrdersPage() {
               value={
                 orders.filter((o) => o.order_status === "Processing").length
               }
-              color="text-blue-500"
+              color="text-yellow-500"
+              icon={<Clock />}
             />
 
             <Card
               title="Shipped"
-              value={
-                orders.filter((o) => o.order_status === "Shipped").length
-              }
-              color="text-purple-500"
+              value={orders.filter((o) => o.order_status === "Shipped").length}
+              color="text-blue-500"
+              icon={<Truck />}
             />
 
             <Card
               title="Revenue"
               value={`₹${orders.reduce(
                 (sum, o) => sum + o.price * o.quantity,
-                0
+                0,
               )}`}
-              color="text-green-500"
+              color="text-green-400"
+              icon={<IndianRupee />}
             />
           </div>
 
@@ -114,22 +148,42 @@ export default function OrdersPage() {
           <div className="flex justify-between items-center">
             <input
               placeholder="Search order, customer..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
               className="bg-zinc-900 px-4 py-2 rounded-lg w-80 border border-zinc-700 text-white"
             />
 
             <div className="flex gap-3">
-              <select className="bg-zinc-900 border border-zinc-700 px-3 py-2 rounded-lg text-white">
-                <option>All Status</option>
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-zinc-900 border border-zinc-700 px-3 py-2 rounded-lg text-white"
+              >
+                <option value="All">All Status</option>
                 <option>Processing</option>
                 <option>Pending</option>
                 <option>Confirmed</option>
                 <option>Shipped</option>
-                 <option>Delivered</option>
+                <option>Delivered</option>
               </select>
 
-              <select className="bg-zinc-900 border border-zinc-700 px-3 py-2 rounded-lg text-white">
-                <option>Last 7 Days</option>
-                <option>Last 30 Days</option>
+              <select
+                value={dateFilter}
+                onChange={(e) => {
+                  setDateFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-zinc-900 border border-zinc-700 px-3 py-2 rounded-lg text-white"
+              >
+                <option value="All">All Time</option>
+                <option value="7">Last 7 Days</option>
+                <option value="30">Last 30 Days</option>
               </select>
             </div>
           </div>
@@ -151,26 +205,22 @@ export default function OrdersPage() {
               </thead>
 
               <tbody>
-                {orders.map((order) => (
+                {paginatedOrders.map((order) => (
                   <tr
                     key={order.id}
                     className="border-t border-zinc-800 hover:bg-zinc-800/60 transition"
                   >
-                    <td className="p-4 font-semibold text-blue-400">
+                    <td
+                      className="p-4 font-semibold text-blue-400 cursor-pointer"
+                      onClick={() => setSelectedOrder(order)}
+                    >
                       {order.order_id}
                     </td>
 
-                    <td className="text-white">
-                      {order.customer_name}
-                    </td>
+                    <td className="text-white">{order.customer_name}</td>
+                    <td className="text-white">{order.product_name}</td>
 
-                    <td className="text-white">
-                      {order.product_name}
-                    </td>
-
-                    <td className="text-center text-white">
-                      {order.quantity}
-                    </td>
+                    <td className="text-center text-white">{order.quantity}</td>
 
                     <td className="pl-8 font-medium text-white">
                       ₹{order.price * order.quantity}
@@ -180,34 +230,103 @@ export default function OrdersPage() {
                       <StatusBadge status={order.order_status} />
                     </td>
 
-                    <td className="text-white">
-                      {order.contact_details}
-                    </td>
+                    <td className="text-white">{order.contact_details}</td>
 
                     <td className="text-right pr-6 text-white">
-                        {order.order_date
-  ? dayjs(order.order_date).format("DD MMM YYYY")
-  : "-"}
+                      {dayjs(order.order_date).format("DD MMM YYYY")}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {/* PAGINATION */}
+          <div className="flex justify-center items-center gap-2 mt-6">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+              className="px-3 py-1 bg-zinc-800 rounded disabled:opacity-40"
+            >
+              Prev
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentPage(i + 1)}
+                className={`px-3 py-1 rounded ${
+                  currentPage === i + 1 ? "bg-green-600" : "bg-zinc-800"
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
+
+            <button
+              disabled={currentPage === totalPages || totalPages === 0}
+              onClick={() => setCurrentPage((p) => p + 1)}
+              className="px-3 py-1 bg-zinc-800 rounded disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+
+          {/* VIEW MODAL */}
+          {selectedOrder && (
+            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 w-[500px] relative">
+                <button
+                  onClick={() => setSelectedOrder(null)}
+                  className="absolute top-3 right-3 text-white"
+                >
+                  ✕
+                </button>
+
+                <h2 className="text-lg font-semibold mb-4 text-white">Order Details</h2>
+
+                <Info label="Order ID" value={selectedOrder.order_id} />
+                <Info label="Customer" value={selectedOrder.customer_name} />
+                <Info label="Product" value={selectedOrder.product_name} />
+                <Info label="Qty" value={selectedOrder.quantity} />
+                <Info
+                  label="Amount"
+                  value={`₹${selectedOrder.price * selectedOrder.quantity}`}
+                />
+                <Info label="Status" value={selectedOrder.order_status} />
+                <Info label="Payment" value={selectedOrder.payment_status} />
+                <Info label="Contact" value={selectedOrder.contact_details} />
+                <Info
+                  label="Date"
+                  value={dayjs(selectedOrder.order_date).format("DD MMM YYYY")}
+                />
+                <Info label="Notes" value={selectedOrder.notes} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
-
-function Card({ title, value, color = "" }: any) {
+function Card({ title, value, color = "text-white", icon }: any) {
   return (
-    <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-800">
-      <p className="text-gray-400 text-sm">{title}</p>
+    <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-800 flex items-center justify-between">
+      <div>
+        <p className="text-gray-400 text-sm">{title}</p>
 
-      <h2 className={`text-2xl font-bold mt-2 ${color}`}>
-        {value}
-      </h2>
+        <h2 className={`text-2xl font-bold mt-2 ${color}`}>{value}</h2>
+      </div>
+
+      {/* KEEP ICON SUPPORT */}
+      {icon && <div className="text-gray-500">{icon}</div>}
     </div>
   );
 }
+
+const Info = ({ label, value }: any) => (
+  <div className="mb-2">
+    <p className="text-gray-400 text-sm">{label}</p>
+    <p className="text-white">{value || "-"}</p>
+  </div>
+);

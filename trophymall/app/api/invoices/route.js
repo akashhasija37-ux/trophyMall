@@ -172,3 +172,97 @@ export async function POST(req) {
     return Response.json({ error: err.message }, { status: 500 });
   }
 }
+
+// ✅ UPDATE INVOICE
+export async function PUT(req) {
+  try {
+    const body = await req.json();
+
+    const {
+      invoice_id,
+      items = [],
+      discount = 0,
+      gst = 0,
+      deposit = 0,
+      payment_status,
+      notes = "",
+      salesperson_id,
+      assigned_to,
+    } = body;
+
+    // 🔥 RECALCULATE
+    let subtotal = 0;
+
+    items.forEach((item) => {
+      const qty = Number(item.qty) || 0;
+      const price = Number(item.price) || 0;
+      subtotal += qty * price;
+    });
+
+    const discountAmount = subtotal * (Number(discount) / 100);
+    const gstAmount = (subtotal - discountAmount) * (Number(gst) / 100);
+    const total = subtotal - discountAmount + gstAmount;
+    const finalAmount = total - Number(deposit || 0);
+
+    // ✅ UPDATE MAIN INVOICE
+    await db.query(
+      `UPDATE invoices SET
+        payment_status = ?,
+        subtotal = ?,
+        discount = ?,
+        tax = ?,
+        deposit = ?,
+        total_amount = ?,
+        notes = ?,
+        salesperson_id = ?,
+        assigned_to = ?
+      WHERE invoice_id = ?`,
+      [
+        payment_status,
+        subtotal,
+        discountAmount,
+        gstAmount,
+        deposit,
+        finalAmount,
+        notes,
+        salesperson_id || null,
+        assigned_to || null,
+        invoice_id,
+      ]
+    );
+
+    // 🔥 DELETE OLD ITEMS
+    await db.query(
+      "DELETE FROM invoice_items WHERE invoice_id = ?",
+      [invoice_id]
+    );
+
+    // 🔥 INSERT NEW ITEMS
+    for (const item of items) {
+      const qty = Number(item.qty) || 0;
+      const price = Number(item.price) || 0;
+
+      await db.query(
+        `INSERT INTO invoice_items 
+        (invoice_id, product_name, quantity, price, total)
+        VALUES (?, ?, ?, ?, ?)`,
+        [
+          invoice_id,
+          item.product || "",
+          qty,
+          price,
+          qty * price,
+        ]
+      );
+    }
+
+    return Response.json({
+      success: true,
+      total: finalAmount,
+    });
+
+  } catch (err) {
+    console.error(err);
+    return Response.json({ error: err.message }, { status: 500 });
+  }
+}
