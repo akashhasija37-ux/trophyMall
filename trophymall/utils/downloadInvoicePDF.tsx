@@ -18,7 +18,7 @@ export const downloadInvoicePDF = async (invoice: any) => {
     const primary: [number, number, number] = [22, 163, 74]; // green
     const gray: [number, number, number] = [120, 120, 120];
 
-    // 🏢 LOGO (IMPORTANT: must be public path or base64)
+    // 🏢 LOGO
     try {
       const img = new Image();
       img.src = "/logo/logo.png";
@@ -52,16 +52,19 @@ export const downloadInvoicePDF = async (invoice: any) => {
           })
         : "-";
 
+    // 📄 SAFE DATA EXTRACTION
+    const data = invoice.raw || {};
+
+    console.log(items, "9999999999");
+    console.log(invoice, "000000000000");
+
     // 📄 INVOICE INFO
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
 
-    console.log(items,'9999999999')
-    console.log(invoice,'000000000000')
-
     doc.text(`Invoice No: ${invoice.id}`, 14, 35);
-    doc.text(`Invoice Date: ${formatDate(invoice.invoice_date)}`, 14, 42);
-    doc.text(`Due Date: ${formatDate(invoice.due_date)}`, 14, 49);
+    doc.text(`Invoice Date: ${formatDate(data.invoice_date)}`, 14, 42);
+    doc.text(`Due Date: ${formatDate(data.due_date)}`, 14, 49);
 
     // 👤 CUSTOMER
     doc.setFontSize(11);
@@ -78,23 +81,46 @@ export const downloadInvoicePDF = async (invoice: any) => {
     doc.text("TrophyMall", 140, 72);
     doc.text("India", 140, 78);
 
-    // 📦 TABLE DATA (SAFE)
+    const normalizeItems = (items: any) => {
+  if (!items) return [];
 
-    //console.log(tableData)
+  // Case 1: Already correct array of arrays
+  if (Array.isArray(items) && Array.isArray(items[0])) {
+    return items;
+  }
 
-    const tableData =
-    
-      Array.isArray(items) && items.length > 0
-        ? items.map((item: any, i: number) => [
-            i + 1,
-            item.product_name || "-",
-            item.quantity || 0,
-            formatCurrency(item.price),
-            formatCurrency(item.total),
-          ])
-        : [["-", "No items found", "-", "-", "-"]];
+  // Case 2: Single object → convert to array
+  if (!Array.isArray(items)) {
+    return [[
+      1,
+      items.product_name || "-",
+      items.quantity || 0,
+      formatCurrency(items.price),
+      formatCurrency(items.total),
+    ]];
+  }
 
-        console.log(tableData)
+  // Case 3: Array of objects → convert
+  if (Array.isArray(items)) {
+    return items.map((item: any, i: number) => [
+      i + 1,
+      item.product_name || "-",
+      item.quantity || 0,
+      formatCurrency(item.price),
+      formatCurrency(item.total),
+    ]);
+  }
+
+  return [];
+};
+
+    // 📦 TABLE DATA (FIXED FOR ARRAY FORMAT)
+    const normalizedItems = normalizeItems(items);
+
+const tableData =
+  normalizedItems.length > 0
+    ? normalizedItems
+    : [["-", "No items found", "-", "-", "-"]];
 
     autoTable(doc, {
       startY: 90,
@@ -115,31 +141,45 @@ export const downloadInvoicePDF = async (invoice: any) => {
         ? (doc as any).lastAutoTable.finalY + 10
         : 120;
 
-    // 💰 TOTALS
+    // 💰 TOTALS (FIXED)
     doc.setFontSize(10);
 
-    console.log(invoice)
-
-    doc.text(`Subtotal: ${formatCurrency(invoice.subtotal)}`, 140, finalY);
-    doc.text(`Discount: ${formatCurrency(invoice.discount)}`, 140, finalY + 6);
-    doc.text(`GST: ${formatCurrency(invoice.tax)}`, 140, finalY + 12);
-    doc.text(`Deposit: ${formatCurrency(invoice.deposit)}`, 140, finalY + 18);
+    doc.text(
+      `Subtotal: ${formatCurrency(data.subtotal)}`,
+      140,
+      finalY
+    );
+    doc.text(
+      `Discount: ${formatCurrency(data.discount)}`,
+      140,
+      finalY + 6
+    );
+    doc.text(
+      `GST: ${formatCurrency(data.tax)}`,
+      140,
+      finalY + 12
+    );
+    doc.text(
+      `Deposit: ${formatCurrency(data.deposit)}`,
+      140,
+      finalY + 18
+    );
 
     doc.setFontSize(12);
     doc.setTextColor(...primary);
     doc.text(
-      `Total: ${formatCurrency(invoice.total_amount)}`,
+      `Total: ${formatCurrency(data.total_amount)}`,
       140,
       finalY + 28
     );
 
     // 📝 NOTES
-    if (invoice.notes) {
+    if (data.notes) {
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(10);
 
       doc.text("Notes:", 14, finalY + 20);
-      doc.text(invoice.notes, 14, finalY + 26);
+      doc.text(data.notes, 14, finalY + 26);
     }
 
     // 📌 FOOTER
@@ -152,7 +192,7 @@ export const downloadInvoicePDF = async (invoice: any) => {
     );
 
     // ⬇️ DOWNLOAD
-    doc.save(`${invoice.invoice_id}.pdf`);
+    doc.save(`${data.invoice_id || invoice.id}.pdf`);
   } catch (err) {
     console.error("PDF Error:", err);
     alert("Failed to generate invoice PDF");
