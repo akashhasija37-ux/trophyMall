@@ -18,8 +18,10 @@ import {
   Briefcase,
   BarChart,
   BoxesIcon,
+  ShoppingCartIcon
 } from "lucide-react";
 import { isAdmin, hasPermission } from "@/utils/auth";
+import path from "path";
 
 const menu = [
   {
@@ -62,6 +64,13 @@ const menu = [
     icon: Boxes,
     path: "/dashboard/inventory",
     permission: "inventory",
+  },
+
+  {
+    name: "Catalog",
+    icon: ShoppingCartIcon,
+    path: "/dashboard/catalog",
+    permission: "inventory"
   },
 
   {

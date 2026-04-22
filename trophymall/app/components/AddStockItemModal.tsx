@@ -1,73 +1,86 @@
 "use client";
 
-import { Modal, Form, Input, Select, InputNumber, Button } from "antd";
+import {
+  Modal,
+  Form,
+  Input,
+  Select,
+  InputNumber,
+  Button,
+  Upload,
+} from "antd";
+import { UploadOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import toast from "react-hot-toast";
 
 const { TextArea } = Input;
 
-type AddStockItemModalProps = {
-  open: boolean;
-  setOpen: any;
-  refresh: () => Promise<void>;
-  item?: any; // ✅ FIX
-};
-
 export default function AddStockItemModal({
   open,
   setOpen,
   refresh,
-}: AddStockItemModalProps) {
+}: any) {
   const [antdForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
-  // 🔥 Submit handler
-  const handleSubmit = async (values: any) => {
-    const toastId = toast.loading("Adding product...");
+  const [featuredImage, setFeaturedImage] = useState<any>(null);
+  const [galleryImages, setGalleryImages] = useState<any[]>([]);
 
-    setLoading(true);
+  // 🔥 SUBMIT
+ const handleSubmit = async (values: any) => {
+  const toastId = toast.loading("Adding product...");
+  setLoading(true);
 
-    try {
-      const payload = {
-        name: values.productName,
-        sku: values.sku,
-        category: values.category,
-        quantity: values.quantity,
-        purchase_price: values.purchasePrice || 0,
-        selling_price: values.sellingPrice || 0,
-        supplier: values.supplier || "",
-        stock_status: values.stockStatus,
-        notes: values.notes || "",
-      };
+  try {
+    const formData = new FormData();
 
-      const res = await fetch("/api/inventory", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+    formData.append("name", values.productName);
+    formData.append("sku", values.sku);
+    formData.append("tm_code", values.tmCode || "");
+    formData.append("discount", values.discount || 0);
+    formData.append("category", values.customCategory || values.category);
+    formData.append("quantity", values.quantity || 0);
+    formData.append("purchase_price", values.purchasePrice || 0);
+    formData.append("selling_price", values.sellingPrice || 0);
+    formData.append("supplier", values.supplier || "");
+    formData.append("stock_status", values.stockStatus);
+    formData.append("height", values.height || 0);
+    formData.append("width", values.width || 0);
+    formData.append("weight", values.weight || 0);
+    formData.append("badge", values.badge || "");
+    formData.append("notes", values.notes || "");
 
-      const data = await res.json();
-
-      if (res.ok) {
-        toast.success("Product added successfully ✅", { id: toastId });
-
-        antdForm.resetFields();
-        setOpen(false);
-        refresh(); // 🔥 update table instantly
-      } else {
-        toast.error(data.error || "Failed to add product ❌", {
-          id: toastId,
-        });
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Server error ❌", { id: toastId });
-    } finally {
-      setLoading(false);
+    // 🔥 FILES
+    if (featuredImage) {
+      formData.append("featured_image", featuredImage);
     }
-  };
+
+    galleryImages.forEach((file) => {
+      formData.append("gallery_images", file);
+    });
+
+    const res = await fetch("/api/inventory", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      toast.success("Product added ✅", { id: toastId });
+      antdForm.resetFields();
+      setOpen(false);
+      refresh();
+    } else {
+      toast.error(data.error || "Failed ❌", { id: toastId });
+    }
+
+  } catch (err) {
+    toast.error("Server error ❌", { id: toastId });
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <Modal
@@ -75,7 +88,7 @@ export default function AddStockItemModal({
       open={open}
       onCancel={() => setOpen(false)}
       footer={null}
-      width={900}
+      width={1100}
       className="dark-ant-modal"
     >
       <Form
@@ -85,68 +98,95 @@ export default function AddStockItemModal({
         initialValues={{
           category: "Finished Goods",
           stockStatus: "In Stock",
-          quantity: 0,
+          discount: 0,
         }}
       >
         <div className="grid grid-cols-2 gap-6">
-          {/* Product Name */}
+
+          {/* PRODUCT NAME */}
           <Form.Item
             label="Product Name"
             name="productName"
-            rules={[{ required: true, message: "Enter product name" }]}
+            rules={[{ required: true }]}
           >
-            <Input placeholder="Product name" />
+            <Input />
           </Form.Item>
 
           {/* SKU */}
           <Form.Item
             label="SKU"
             name="sku"
-            rules={[{ required: true, message: "Enter SKU" }]}
-          >
-            <Input placeholder="e.g. TRP-CRY-001" />
-          </Form.Item>
-
-          {/* Category */}
-          <Form.Item
-            label="Category"
-            name="category"
             rules={[{ required: true }]}
           >
+            <Input />
+          </Form.Item>
+
+          {/* 🔥 TM CODE */}
+          <Form.Item label="TM Code" name="tmCode">
+            <Input placeholder="Internal tracking code (TM-001)" />
+          </Form.Item>
+
+          {/* 🔥 DISCOUNT */}
+          <Form.Item label="Discount (%)" name="discount">
+            <InputNumber min={0} max={100} style={{ width: "100%" }} />
+          </Form.Item>
+
+          {/* CATEGORY */}
+          <Form.Item label="Category" name="category">
             <Select>
-              <Select.Option value="Finished Goods">
-                Finished Goods
-              </Select.Option>
+              <Select.Option value="Finished Goods">Finished Goods</Select.Option>
               <Select.Option value="Raw Material">Raw Material</Select.Option>
               <Select.Option value="Accessories">Accessories</Select.Option>
             </Select>
           </Form.Item>
 
-          {/* Quantity */}
-          <Form.Item
-            label="Quantity"
-            name="quantity"
-            rules={[{ required: true, message: "Enter quantity" }]}
-          >
+          {/* CUSTOM CATEGORY */}
+          <Form.Item label="Custom Category" name="customCategory">
+            <Input placeholder="Optional custom category" />
+          </Form.Item>
+
+          {/* QUANTITY */}
+          <Form.Item label="Quantity" name="quantity" rules={[{ required: true }]}>
             <InputNumber min={0} style={{ width: "100%" }} />
           </Form.Item>
 
-          {/* Purchase Price */}
+          {/* BADGE */}
+          <Form.Item label="Product Badge" name="badge">
+            <Select allowClear>
+              <Select.Option value="New">New</Select.Option>
+              <Select.Option value="Trending">Trending</Select.Option>
+              <Select.Option value="Bestseller">Bestseller</Select.Option>
+            </Select>
+          </Form.Item>
+
+          {/* DIMENSIONS */}
+          <Form.Item label="Height (cm)" name="height">
+            <InputNumber style={{ width: "100%" }} />
+          </Form.Item>
+
+          <Form.Item label="Width (cm)" name="width">
+            <InputNumber style={{ width: "100%" }} />
+          </Form.Item>
+
+          <Form.Item label="Weight (kg)" name="weight">
+            <InputNumber style={{ width: "100%" }} />
+          </Form.Item>
+
+          {/* PRICES */}
           <Form.Item label="Purchase Price (₹)" name="purchasePrice">
-            <InputNumber min={0} style={{ width: "100%" }} placeholder="0.00" />
+            <InputNumber style={{ width: "100%" }} />
           </Form.Item>
 
-          {/* Selling Price */}
           <Form.Item label="Selling Price (₹)" name="sellingPrice">
-            <InputNumber min={0} style={{ width: "100%" }} placeholder="0.00" />
+            <InputNumber style={{ width: "100%" }} />
           </Form.Item>
 
-          {/* Supplier */}
+          {/* SUPPLIER */}
           <Form.Item label="Supplier" name="supplier">
-            <Input placeholder="Supplier name" />
+            <Input />
           </Form.Item>
 
-          {/* Stock Status */}
+          {/* STATUS */}
           <Form.Item label="Stock Status" name="stockStatus">
             <Select>
               <Select.Option value="In Stock">In Stock</Select.Option>
@@ -155,26 +195,50 @@ export default function AddStockItemModal({
             </Select>
           </Form.Item>
 
-          {/* Notes */}
-          <Form.Item label="Notes" name="notes" className="col-span-2">
-            <TextArea rows={4} placeholder="Add any additional notes..." />
+          {/* FEATURED IMAGE */}
+          <Form.Item label="Featured Image">
+            <Upload
+              beforeUpload={(file) => {
+                setFeaturedImage(file);
+                return false;
+              }}
+              maxCount={1}
+            >
+              <Button icon={<UploadOutlined />}>Upload</Button>
+            </Upload>
           </Form.Item>
+
+          {/* GALLERY */}
+          <Form.Item label="Gallery Images" className="col-span-2">
+            <Upload
+              multiple
+              beforeUpload={(file) => {
+                setGalleryImages((prev) => [...prev, file]);
+                return false;
+              }}
+            >
+              <Button icon={<UploadOutlined />}>Upload Multiple</Button>
+            </Upload>
+          </Form.Item>
+
+          {/* NOTES */}
+          <Form.Item label="Notes" name="notes" className="col-span-2">
+            <TextArea rows={4} />
+          </Form.Item>
+
         </div>
 
-        {/* Footer */}
+        {/* FOOTER */}
         <div className="flex gap-4 mt-4">
           <Button
             htmlType="submit"
             loading={loading}
-            className="bg-green-600 hover:bg-green-700 border-none text-white"
+            className="bg-green-600 text-white"
           >
-            Add Stock
+            Add Product
           </Button>
 
-          <Button
-            onClick={() => setOpen(false)}
-            className="bg-zinc-700 text-white border-none"
-          >
+          <Button onClick={() => setOpen(false)}>
             Cancel
           </Button>
         </div>

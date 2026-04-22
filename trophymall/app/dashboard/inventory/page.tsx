@@ -5,6 +5,7 @@ import Sidebar from "@/app/components/sidebar";
 import Topbar from "@/app/components/topbar";
 import AddStockItemModal from "@/app/components/AddStockItemModal";
 import EditStockModal from "@/app/components/EditStockModal";
+import Image from "next/image";
 import {
   AlertTriangle,
   Package,
@@ -18,7 +19,9 @@ import {
   Filter,
   History,
   Search,
+  Trash2
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 type InventoryItem = {
   id: number;
@@ -64,23 +67,63 @@ export default function InventoryPage() {
   };
 
   // ✅ SEARCH + FILTER COMBINED
-  const filteredInventory = inventory.filter((item) => {
+  const filteredInventory = (inventory || []).filter((item) => {
     const status = getStockStatus(item.quantity);
 
+    const searchText = search.toLowerCase();
+
+    // 🔍 SAFE SEARCH (no crash)
     const matchesSearch =
-      item.name.toLowerCase().includes(search.toLowerCase()) ||
-      item.sku.toLowerCase().includes(search.toLowerCase());
+      (item.name || "").toLowerCase().includes(searchText) ||
+      (item.sku || "").toLowerCase().includes(searchText) ||
+      (item.tm_code || "").toLowerCase().includes(searchText) ||
+      (item.category || "").toLowerCase().includes(searchText) ||
+      (item.supplier || "").toLowerCase().includes(searchText);
 
     if (!matchesSearch) return false;
 
+    // 📦 STOCK FILTER
     if (filter === "low" && status !== "Low Stock") return false;
     if (filter === "out" && status !== "Out of Stock") return false;
 
-    if (categoryFilter !== "all" && item.category !== categoryFilter)
+    // 🏷 CATEGORY FILTER (case-safe)
+    if (
+      categoryFilter !== "all" &&
+      (item.category || "").toLowerCase() !== categoryFilter.toLowerCase()
+    ) {
       return false;
+    }
 
     return true;
   });
+
+  const handleDelete = async (id: number) => {
+  const confirmDelete = confirm("Are you sure you want to delete this product?");
+  if (!confirmDelete) return;
+
+  try {
+    const res = await fetch("/api/inventory", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      toast.success("Deleted successfully");
+      fetchInventory(); // refresh list
+    } else {
+      alert(data.error || "Delete failed");
+    }
+
+  } catch (err) {
+    console.error(err);
+    toast.error("Server error");
+  }
+};
 
   const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
 
@@ -89,9 +132,12 @@ export default function InventoryPage() {
     currentPage * itemsPerPage,
   );
 
+  console.log(paginatedInventory);
+
   // ✅ EXPORT CSV
   const exportData = () => {
     const headers = [
+      "featured_image",
       "SKU",
       "Name",
       "Category",
@@ -101,6 +147,7 @@ export default function InventoryPage() {
     ];
 
     const rows = filteredInventory.map((i) => [
+      i.featured_image,
       i.sku,
       i.name,
       i.category,
@@ -267,6 +314,7 @@ export default function InventoryPage() {
             <table className="w-full table-fixed border-collapse">
               <thead className="text-gray-400 text-sm border-b border-zinc-800">
                 <tr>
+                  <th className="text-left py-3 w-[120px]">Image</th>
                   <th className="text-left py-3 w-[120px]">SKU</th>
                   <th className="text-left w-[220px]">Name</th>
                   <th className="text-left w-[160px]">Category</th>
@@ -286,6 +334,20 @@ export default function InventoryPage() {
                       key={i}
                       className="border-b border-zinc-800 hover:bg-zinc-800/40"
                     >
+                      <td className="py-3">
+                        {item.featured_image ? (
+                          <img
+                            src={`/uploads/${item.featured_image}`}
+                            alt={item.name}
+                            className="w-12 h-12 object-cover rounded"
+                            onError={(e) => {
+                              e.currentTarget.src = "/no-image.png";
+                            }}
+                          />
+                        ) : (
+                          <span className="text-gray-400">No Image</span>
+                        )}
+                      </td>
                       <td className="py-3 text-blue-400">{item.sku}</td>
 
                       <td className="text-white truncate">{item.name}</td>
@@ -314,11 +376,6 @@ export default function InventoryPage() {
 
                       <td className="text-right">
                         <div className="flex justify-end gap-3">
-                          <Eye
-                            size={18}
-                            className="text-blue-400 hover:text-blue-300 cursor-pointer"
-                            onClick={() => setSelectedItem(item)}
-                          />
                           <Pencil
                             size={18}
                             className="text-green-400 hover:text-green-300 cursor-pointer"
@@ -326,6 +383,12 @@ export default function InventoryPage() {
                               setSelectedItem(item);
                               setOpenEditStock(true);
                             }}
+                          />
+
+                          <Trash2
+                            size={18}
+                            className="text-red-400 hover:text-red-300 cursor-pointer"
+                            onClick={() => handleDelete(item.id)}
                           />
                         </div>
                       </td>
