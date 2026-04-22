@@ -76,7 +76,7 @@ export default function InventoryPage() {
     const matchesSearch =
       (item.name || "").toLowerCase().includes(searchText) ||
       (item.sku || "").toLowerCase().includes(searchText) ||
-      (item.tm_code || "").toLowerCase().includes(searchText) ||
+      //(item.tm_code || "").toLowerCase().includes(searchText) ||
       (item.category || "").toLowerCase().includes(searchText) ||
       (item.supplier || "").toLowerCase().includes(searchText);
 
