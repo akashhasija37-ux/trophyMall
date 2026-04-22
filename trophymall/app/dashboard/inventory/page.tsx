@@ -34,6 +34,11 @@ type InventoryItem = {
   supplier: string;
   stock_status: string;
   notes?: string;
+  
+  featured_image?: string;
+  gallery_images?: string;
+  discount?: number;
+  badge?: string;
 };
 
 export default function InventoryPage() {
