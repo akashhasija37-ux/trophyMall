@@ -19,7 +19,7 @@ import {
   Filter,
   History,
   Search,
-  Trash2
+  Trash2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -34,7 +34,7 @@ type InventoryItem = {
   supplier: string;
   stock_status: string;
   notes?: string;
-  
+
   featured_image?: string;
   gallery_images?: string;
   discount?: number;
@@ -103,32 +103,33 @@ export default function InventoryPage() {
   });
 
   const handleDelete = async (id: number) => {
-  const confirmDelete = confirm("Are you sure you want to delete this product?");
-  if (!confirmDelete) return;
+    const confirmDelete = confirm(
+      "Are you sure you want to delete this product?",
+    );
+    if (!confirmDelete) return;
 
-  try {
-    const res = await fetch("/api/inventory", {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ id }),
-    });
+    try {
+      const res = await fetch("/api/inventory", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (res.ok) {
-      toast.success("Deleted successfully");
-      fetchInventory(); // refresh list
-    } else {
-      alert(data.error || "Delete failed");
+      if (res.ok) {
+        toast.success("Deleted successfully");
+        fetchInventory(); // refresh list
+      } else {
+        alert(data.error || "Delete failed");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Server error");
     }
-
-  } catch (err) {
-    console.error(err);
-    toast.error("Server error");
-  }
-};
+  };
 
   const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
 

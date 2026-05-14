@@ -209,15 +209,8 @@ export default function CreateInvoiceModal({
   };
 
   return (
-    <Modal
-      title={editData ? "Edit Invoice" : "Create New Invoice"}
-      open={open}
-      onCancel={() => setOpen(false)}
-      footer={null}
-      width={1000}
-      className="dark-ant-modal"
-      destroyOnHidden
-    >
+   <div className="p-8 bg-black min-h-screen text-white">
+  <div className="max-w-6xl mx-auto bg-zinc-900 border border-zinc-800 rounded-xl p-8 shadow-xl">
       <Form
         form={form}
         layout="vertical"
@@ -228,7 +221,7 @@ export default function CreateInvoiceModal({
         }}
       >
         {/* TOP */}
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-3 gap-6 lablcl">
           <Form.Item
             label="Customer"
             name="customer"
@@ -340,7 +333,7 @@ export default function CreateInvoiceModal({
 
         {/* SUMMARY (FULL PRESERVED) */}
         <div className="grid grid-cols-2 gap-8 mt-6">
-          <div>
+          <div className="lablcl">
             <Form.Item label="Payment Status" name="paymentStatus">
               <Select>
                 <Select.Option value="Pending">Pending</Select.Option>
@@ -434,6 +427,7 @@ export default function CreateInvoiceModal({
           <Button onClick={() => setOpen(false)}>Cancel</Button>
         </div>
       </Form>
-    </Modal>
+   </div>
+</div>
   );
 }

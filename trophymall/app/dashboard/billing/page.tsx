@@ -25,6 +25,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import Link from "next/link";
 
 export default function BillingPage() {
   const [openinvoice, setopeninvoice] = useState(false);
@@ -140,14 +141,12 @@ export default function BillingPage() {
                 Manage invoices, payments, and revenue tracking
               </p>
             </div>
-
-            <button
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg text-white"
-              onClick={() => setopeninvoice(true)}
-            >
-              <Plus size={18} />
-              Create Invoice
-            </button>
+            <Link href="/dashboard/create-invoice">
+              <button className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg text-white">
+                <Plus size={18} />
+                Create Invoice
+              </button>
+            </Link>
 
             <CreateInvoiceModal
               open={openinvoice}

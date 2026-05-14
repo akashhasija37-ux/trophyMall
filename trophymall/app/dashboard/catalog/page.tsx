@@ -33,11 +33,11 @@ export default function CatalogPage() {
 
   // ✅ FILTER
   const filtered = products.filter((p) => {
-    const matchCategory =
-      category === "All" || p.category === category;
+    const matchCategory = category === "All" || p.category === category;
 
-    const matchSearch =
-      (p.name || "").toLowerCase().includes(search.toLowerCase());
+    const matchSearch = (p.name || "")
+      .toLowerCase()
+      .includes(search.toLowerCase());
 
     return matchCategory && matchSearch;
   });
@@ -45,10 +45,7 @@ export default function CatalogPage() {
   // ✅ PAGINATION LOGIC
   const totalPages = Math.ceil(filtered.length / pageSize);
 
-  const paginated = filtered.slice(
-    (page - 1) * pageSize,
-    page * pageSize
-  );
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div className="flex min-h-screen bg-black">
@@ -58,11 +55,8 @@ export default function CatalogPage() {
         <Topbar />
 
         <div className="p-8 space-y-6">
-
           {/* HEADER */}
-          <h1 className="text-3xl font-bold text-white">
-            Product Catalog
-          </h1>
+          <h1 className="text-3xl font-bold text-white">Product Catalog</h1>
 
           {/* SEARCH */}
           <input
@@ -97,16 +91,13 @@ export default function CatalogPage() {
 
           {/* GRID */}
           <div className="grid grid-cols-4 gap-6">
-
             {paginated.map((item, i) => {
               // ✅ FIXED PRICE LOGIC
               const price = Number(item.selling_price || 0);
               const discount = Number(item.discount || 0);
 
               const discountPrice =
-                discount > 0
-                  ? price - (price * discount) / 100
-                  : price;
+                discount > 0 ? price - (price * discount) / 100 : price;
 
               return (
                 <div
@@ -114,7 +105,6 @@ export default function CatalogPage() {
                   onClick={() => setSelectedProduct(item)}
                   className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 cursor-pointer hover:scale-105 transition"
                 >
-
                   {/* IMAGE */}
                   <div className="relative">
                     <img
@@ -146,9 +136,7 @@ export default function CatalogPage() {
                       {item.name}
                     </h3>
 
-                    <p className="text-gray-400 text-xs">
-                      {item.category}
-                    </p>
+                    <p className="text-gray-400 text-xs">{item.category}</p>
 
                     {/* PRICE */}
                     <div className="mt-1">
@@ -184,19 +172,14 @@ export default function CatalogPage() {
               </button>
             ))}
           </div>
-
         </div>
       </div>
 
       {/* ================= MODAL ================= */}
       {selectedProduct && (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
-
           <div className="bg-zinc-900 rounded-xl p-6 w-[700px]">
-
-            <h2 className="text-white text-xl mb-4">
-              {selectedProduct.name}
-            </h2>
+            <h2 className="text-white text-xl mb-4">{selectedProduct.name}</h2>
 
             {/* IMAGE */}
             <img
@@ -217,7 +200,7 @@ export default function CatalogPage() {
                       src={`/uploads/${img}`}
                       className="w-16 h-16 object-cover rounded"
                     />
-                  )
+                  ),
                 )}
             </div>
 
@@ -235,9 +218,7 @@ export default function CatalogPage() {
               const discount = Number(selectedProduct.discount || 0);
 
               const finalPrice =
-                discount > 0
-                  ? price - (price * discount) / 100
-                  : price;
+                discount > 0 ? price - (price * discount) / 100 : price;
 
               return (
                 <div className="mt-3 text-lg">
@@ -261,7 +242,6 @@ export default function CatalogPage() {
             >
               Close
             </button>
-
           </div>
         </div>
       )}

@@ -290,7 +290,12 @@ function StatCard({ title, value }: any) {
 const LeadRow = ({ id, onView, ...lead }: any) => {
   return (
     <tr className="border-b border-gray-800 hover:bg-zinc-900/40 transition">
-      <td className="py-4 px-3 text-blue-400 font-medium cursor-pointer" onClick={onView}>{id}</td>
+      <td
+        className="py-4 px-3 text-blue-400 font-medium cursor-pointer"
+        onClick={onView}
+      >
+        {id}
+      </td>
 
       <td className="px-3">
         <div className="flex flex-col">

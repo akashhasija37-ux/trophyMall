@@ -65,17 +65,17 @@ export default function CustomerPage() {
   const totalCustomers = customers.length;
 
   const activeCustomers = customers.filter(
-    (c) => (c.status || "Active") === "Active"
+    (c) => (c.status || "Active") === "Active",
   ).length;
 
   const totalOrders = customers.reduce(
     (sum, c) => sum + Number(c.orders || 0),
-    0
+    0,
   );
 
   const totalRevenue = customers.reduce(
     (sum, c) => sum + Number(c.spent || 0),
-    0
+    0,
   );
 
   // ✅ EXPORT (FIXED)
@@ -116,7 +116,6 @@ export default function CustomerPage() {
         <Topbar />
 
         <div className="p-8 space-y-8">
-
           {/* HEADER */}
           <div className="flex justify-between items-center">
             <div>
@@ -129,7 +128,6 @@ export default function CustomerPage() {
             </div>
 
             <div className="flex items-center gap-3">
-
               <button
                 onClick={() => setShowImportModal(true)}
                 className="bg-green-600 px-4 py-2 rounded-lg text-sm"
@@ -150,26 +148,40 @@ export default function CustomerPage() {
               >
                 ⬇ Export Data
               </button>
-
             </div>
           </div>
 
           {/* STATS WITH ICONS */}
           <div className="grid grid-cols-4 gap-6">
+            <StatCard
+              icon={<Users />}
+              title="Total Customers"
+              value={totalCustomers}
+            />
 
-            <StatCard icon={<Users />} title="Total Customers" value={totalCustomers} />
+            <StatCard
+              icon={<UserCheck />}
+              title="Active Customers"
+              value={activeCustomers}
+              color="text-green-400"
+            />
 
-            <StatCard icon={<UserCheck />} title="Active Customers" value={activeCustomers} color="text-green-400" />
+            <StatCard
+              icon={<ShoppingCart />}
+              title="Total Orders"
+              value={totalOrders}
+            />
 
-            <StatCard icon={<ShoppingCart />} title="Total Orders" value={totalOrders} />
-
-            <StatCard icon={<IndianRupee />} title="Total Revenue" value={`₹${totalRevenue}`} color="text-green-400" />
-
+            <StatCard
+              icon={<IndianRupee />}
+              title="Total Revenue"
+              value={`₹${totalRevenue}`}
+              color="text-green-400"
+            />
           </div>
 
           {/* SEARCH */}
           <div className="flex gap-4">
-
             <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2 w-full">
               <Search size={18} className="text-gray-400" />
               <input
@@ -184,13 +196,11 @@ export default function CustomerPage() {
               <Filter size={16} />
               Filters
             </button>
-
           </div>
 
           {/* TABLE */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
             <table className="w-full table-fixed">
-
               <thead className="text-gray-400 text-sm border-b border-zinc-800">
                 <tr>
                   <th className="text-left p-4 w-[140px]">Customer ID</th>
@@ -219,15 +229,19 @@ export default function CustomerPage() {
                   </tr>
                 ) : (
                   filteredCustomers.map((c: any, i: number) => (
-                    <tr key={i} className="border-t border-zinc-800 hover:bg-zinc-800/40">
-
+                    <tr
+                      key={i}
+                      className="border-t border-zinc-800 hover:bg-zinc-800/40"
+                    >
                       <td className="p-4 text-blue-400 font-medium">
                         CUST-{c.id}
                       </td>
 
                       <td>
                         <p className="text-white">{c.name}</p>
-                        <p className="text-gray-400 text-sm">{c.company || "-"}</p>
+                        <p className="text-gray-400 text-sm">
+                          {c.company || "-"}
+                        </p>
                       </td>
 
                       <td>
@@ -248,14 +262,15 @@ export default function CustomerPage() {
                       </td>
 
                       <td className="text-center">
-                        <span className={`px-3 py-1 rounded text-xs ${badge[c.status || "Active"]}`}>
+                        <span
+                          className={`px-3 py-1 rounded text-xs ${badge[c.status || "Active"]}`}
+                        >
                           {c.status || "Active"}
                         </span>
                       </td>
 
                       <td>
                         <div className="flex justify-end gap-3 pr-4 text-gray-400">
-
                           <Eye
                             size={18}
                             className="cursor-pointer hover:text-white"
@@ -268,16 +283,16 @@ export default function CustomerPage() {
                             onClick={() => setEditCustomer(c)}
                           />
 
-                          <MoreVertical size={18} className="cursor-pointer hover:text-white" />
-
+                          <MoreVertical
+                            size={18}
+                            className="cursor-pointer hover:text-white"
+                          />
                         </div>
                       </td>
-
                     </tr>
                   ))
                 )}
               </tbody>
-
             </table>
           </div>
         </div>

@@ -65,8 +65,7 @@ export default function DispatchPage() {
       item.customer?.toLowerCase().includes(search.toLowerCase()) ||
       item.orderId?.toLowerCase().includes(search.toLowerCase());
 
-    const matchStatus =
-      statusFilter === "All" || item.status === statusFilter;
+    const matchStatus = statusFilter === "All" || item.status === statusFilter;
 
     const matchDate =
       !dateFilter ||
@@ -80,7 +79,7 @@ export default function DispatchPage() {
 
   const paginatedData = filteredData.slice(
     (page - 1) * pageSize,
-    page * pageSize
+    page * pageSize,
   );
 
   // 📦 SEND TRACKING TO CUSTOMER
@@ -92,7 +91,7 @@ export default function DispatchPage() {
       });
 
       //alert("Tracking sent to customer ✅");
-      toast.success("Tracking sent to customer ✅")
+      toast.success("Tracking sent to customer ✅");
     } catch (err) {
       toast.error("Failed to send tracking ❌");
     }
@@ -106,7 +105,6 @@ export default function DispatchPage() {
         <Topbar />
 
         <div className="p-8 space-y-8">
-
           {/* HEADER */}
           <div className="flex justify-between items-center">
             <div>
@@ -138,7 +136,6 @@ export default function DispatchPage() {
 
           {/* FILTER BAR */}
           <div className="flex gap-4 flex-wrap">
-
             <input
               placeholder="Search order / customer..."
               className="bg-zinc-800 px-4 py-2 rounded-lg text-white"
@@ -176,7 +173,6 @@ export default function DispatchPage() {
           {/* PAGINATION */}
           {filteredData.length > 0 && (
             <div className="flex items-center justify-center gap-2 mt-6">
-
               <button
                 disabled={page === 1}
                 onClick={() => setPage(page - 1)}
@@ -221,16 +217,24 @@ export default function DispatchPage() {
           {selected && (
             <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
               <div className="bg-zinc-900 p-6 rounded-xl w-[500px] border border-zinc-800">
-                <h2 className="text-xl text-white mb-4">
-                  Dispatch Details
-                </h2>
+                <h2 className="text-xl text-white mb-4">Dispatch Details</h2>
 
                 <div className="space-y-2 text-sm text-gray-300">
-                  <p><b>Order ID:</b> {selected.orderId}</p>
-                  <p><b>Customer:</b> {selected.customer}</p>
-                  <p><b>Courier:</b> {selected.courier}</p>
-                  <p><b>Tracking:</b> {selected.tracking}</p>
-                  <p><b>Status:</b> {selected.status}</p>
+                  <p>
+                    <b>Order ID:</b> {selected.orderId}
+                  </p>
+                  <p>
+                    <b>Customer:</b> {selected.customer}
+                  </p>
+                  <p>
+                    <b>Courier:</b> {selected.courier}
+                  </p>
+                  <p>
+                    <b>Tracking:</b> {selected.tracking}
+                  </p>
+                  <p>
+                    <b>Status:</b> {selected.status}
+                  </p>
                   <p>
                     <b>Date:</b>{" "}
                     {new Date(selected.delivery).toLocaleDateString()}
