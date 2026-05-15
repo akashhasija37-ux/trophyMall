@@ -67,7 +67,10 @@ body {
 :where(.css-dev-only-do-not-override-1daqxe2).ant-input-number
   .ant-input-number-input {
   color: #ffffff !important;
+  
 }
+
+
 .hidden {
   display: none;
   position: relative;

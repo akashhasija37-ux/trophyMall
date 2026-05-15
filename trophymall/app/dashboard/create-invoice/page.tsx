@@ -13,6 +13,8 @@ import {
 import { PlusOutlined } from "@ant-design/icons";
 import { useState, useEffect } from "react";
 import dayjs from "dayjs";
+import Sidebar from "@/app/components/sidebar";
+import Link from "next/link";
 
 const { TextArea } = Input;
 
@@ -210,7 +212,11 @@ export default function CreateInvoiceModal({
 
   return (
    <div className="p-8 bg-black min-h-screen text-white">
+    <Link href="/dashboard/billing">
+    <Button className="bg-secondary">Back </Button ></Link>
   <div className="max-w-6xl mx-auto bg-zinc-900 border border-zinc-800 rounded-xl p-8 shadow-xl">
+    
+        {/* TOP */}
       <Form
         form={form}
         layout="vertical"
@@ -220,7 +226,7 @@ export default function CreateInvoiceModal({
           paymentStatus: "Pending",
         }}
       >
-        {/* TOP */}
+      
         <div className="grid grid-cols-3 gap-6 lablcl">
           <Form.Item
             label="Customer"
@@ -297,7 +303,7 @@ export default function CreateInvoiceModal({
         min={1}
         value={item.qty}
         onChange={(v) => updateItem(index, "qty", v)}
-        style={{ width: "100%" }}
+        style={{ width: "100%",background:'#000' }}
       />
 
       {/* DISCOUNT */}
