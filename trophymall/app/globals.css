@@ -70,7 +70,9 @@ body {
   
 }
 
-
+input.ant-input-number-input, .grid.grid-cols-3.gap-6.lablcl label{
+  color: #0a0a0a!important;
+}
 .hidden {
   display: none;
   position: relative;
@@ -81,6 +83,18 @@ body {
 .dark-ant-modal .ant-modal-content {
   background-color: #18181b;
   color: white;
+}
+
+.bg-zinc-800.p-6.rounded-lg.notepart div {
+    background: #27272a!important;
+    color: #fff!important;
+}
+
+.pdinput input.ant-input-number-input{
+  color:#0a0a0a!important
+}
+.pricetag{
+  background: #fff!important;
 }
 
 .dark-ant-modal .ant-modal-header {
