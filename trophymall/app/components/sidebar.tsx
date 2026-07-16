@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 import {
   LayoutDashboard,
@@ -18,7 +19,9 @@ import {
   Briefcase,
   BarChart,
   BoxesIcon,
-  ShoppingCartIcon
+  ShoppingCartIcon,
+   ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { isAdmin, hasPermission } from "@/utils/auth";
 import path from "path";
@@ -55,8 +58,89 @@ const menu = [
   {
     name: "Billing Management",
     icon: FileText,
-    path: "/dashboard/billing",
-    permission: "invoices", // ✅ IMPORTANT
+    permission: "invoices",
+    children: [
+      {
+        name: "Dashboard",
+        path: "/dashboard/billing",
+        icon: LayoutDashboard,
+      },
+      {
+        name: "Sales Voucher",
+        path: "/dashboard/create-invoice",
+        icon: FileText,
+      },
+      {
+        name: "Quotations",
+        path: "/dashboard/billing/quotation",
+        icon: FileText,
+      },
+      {
+        name: "Proforma Invoice",
+        path: "/dashboard/billing/proforma",
+        icon: FileText,
+      },
+      {
+        name: "Delivery Challan",
+        path: "/dashboard/billing/delivery-challan",
+        icon: Truck,
+      },
+      {
+        name: "Booked Orders",
+        path: "/dashboard/billing/booked-orders",
+        icon: ShoppingCart,
+      },
+      {
+        name: "Sale Return",
+        path: "/dashboard/billing/sale-return",
+        icon: ShoppingCart,
+      },
+      {
+        name: "Purchase Voucher",
+        path: "/dashboard/billing/purchase-voucher",
+        icon: FileText,
+      },
+      {
+        name: "Purchase Return",
+        path: "/dashboard/billing/purchase-return",
+        icon: FileText,
+      },
+      {
+        name: "Journal Entry",
+        path: "/dashboard/billing/journal-entry",
+        icon: FileText,
+      },
+      {
+        name: "Cash Receipt",
+        path: "/dashboard/billing/cash-receipt",
+        icon: FileText,
+      },
+      {
+        name: "Bank Receipt",
+        path: "/dashboard/billing/bank-receipt",
+        icon: FileText,
+      },
+      {
+        name: "Cash Payment",
+        path: "/dashboard/billing/cash-payment",
+        icon: FileText,
+      },
+      {
+        name: "Bank Payment",
+        path: "/dashboard/billing/bank-payment",
+        icon: FileText,
+      },
+      {
+        name: "Sale Register",
+        path: "/dashboard/billing/sale-register",
+        icon: ChartBar,
+      },
+      {
+        name: "Purchase Register",
+        path: "/dashboard/billing/purchase-register",
+        icon: ChartBar,
+      },
+    ],
   },
 
   {
@@ -70,7 +154,7 @@ const menu = [
     name: "Catalog",
     icon: ShoppingCartIcon,
     path: "/dashboard/catalog",
-    permission: "inventory"
+    permission: "inventory",
   },
 
   {
@@ -117,6 +201,19 @@ const menu = [
 ];
 
 export default function Sidebar() {
+
+  const [openMenus, setOpenMenus] = useState<string[]>([
+  "Billing Management",
+]);
+
+const toggleMenu = (menuName: string) => {
+  setOpenMenus((prev) =>
+    prev.includes(menuName)
+      ? prev.filter((m) => m !== menuName)
+      : [...prev, menuName]
+  );
+};
+
   const pathname = usePathname();
 
   return (
@@ -157,26 +254,84 @@ ERP System
             return true;
           })
           .map((item, i) => {
-            const Icon = item.icon;
-            const active = pathname === item.path;
+  const Icon = item.icon;
 
-            return (
-              <Link
-                key={i}
-                href={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition
-${
-  active
-    ? "bg-green-700 text-white"
-    : "text-gray-400 hover:bg-zinc-900 hover:text-white"
-}`}
-              >
-                <Icon size={18} />
+  // ------------------------
+  // Parent with children
+  // ------------------------
 
-                {item.name}
-              </Link>
-            );
-          })}
+  if (item.children) {
+    const isOpen = openMenus.includes(item.name);
+
+    return (
+      <div key={i}>
+        <button
+          onClick={() => toggleMenu(item.name)}
+          className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm text-white hover:bg-zinc-900 transition"
+        >
+          <div className="flex items-center gap-3">
+            <Icon size={18} />
+            {item.name}
+          </div>
+
+          {isOpen ? (
+            <ChevronDown size={16} />
+          ) : (
+            <ChevronRight size={16} />
+          )}
+        </button>
+
+        {isOpen && (
+          <div className="ml-6 mt-2 space-y-1">
+            {item.children.map((child, idx) => {
+              const ChildIcon = child.icon;
+              const childActive =
+                pathname === child.path;
+
+              return (
+                <Link
+                  key={idx}
+                  href={child.path}
+                  className={`flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition
+                  ${
+                    childActive
+                      ? "bg-green-700 text-white"
+                      : "text-gray-400 hover:bg-zinc-900 hover:text-white"
+                  }`}
+                >
+                  <ChildIcon size={16} />
+                  {child.name}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ------------------------
+  // Normal menu item
+  // ------------------------
+
+  const active = pathname === item.path;
+
+  return (
+    <Link
+      key={i}
+      href={item.path!}
+      className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition
+      ${
+        active
+          ? "bg-green-700 text-white"
+          : "text-gray-400 hover:bg-zinc-900 hover:text-white"
+      }`}
+    >
+      <Icon size={18} />
+      {item.name}
+    </Link>
+   );
+})}
       </nav>
     </aside>
   );
