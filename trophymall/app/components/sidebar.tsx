@@ -82,7 +82,7 @@ const menu = [
       },
       {
         name: "Delivery Challan",
-        path: "/dashboard/billing/delivery-challan",
+        path: "/dashboard/billing/challan",
         icon: Truck,
       },
       {
