@@ -22,6 +22,26 @@ import {
   ShoppingCartIcon,
    ChevronDown,
   ChevronRight,
+  UserCircle,
+  Layers2,
+  RectangleCircle,
+  LucideCurlyBraces,
+  Box,
+  Tag,
+  Hash,
+  Users2,
+  BadgeDollarSignIcon,
+  RefreshCcw,
+  Book,
+  Paperclip,
+  BookSearch,
+  DollarSign,
+  Building,
+  BarChart2,
+  CircleDollarSign,
+  CheckLine,
+  BookDashed,
+  ShoppingBag,
 } from "lucide-react";
 import { isAdmin, hasPermission } from "@/utils/auth";
 import path from "path";
@@ -142,6 +162,197 @@ const menu = [
       },
     ],
   },
+
+   {
+    name: "Masters",
+    icon: Database,
+    permission: "invoices",
+    children: [
+      {
+        name: "Account Group",
+        path: "/dashboard/masters/account-group",
+        icon: BarChart,
+      },
+      {
+        name: "Account Master",
+        path: "/dashboard/masters/account-master",
+        icon: Database
+      },
+      {
+        name: "Customer Master",
+        path: "/dashboard/masters/customer-master",
+        icon: UserCircle
+      },
+      {
+        name: "Supplier Master",
+        path: "/dashboard/masters/supplier-master",
+        icon: ShoppingCart
+      },
+      {
+        name: "Product Group",
+        path: "/dashboard/masters/product-group",
+        icon: Layers2
+      },
+      {
+        name: "Product Master",
+        path: "/dashboard/masters/product-master",
+        icon: Box
+      },
+      {
+        name: "Product Category",
+        path: "/dashboard/masters/product-category",
+        icon: Tag
+      },
+      {
+        name: "Unit Master",
+        path: "/dashboard/masters/unit-master",
+        icon: Hash
+      },
+      {
+        name: "HSN Master",
+        path: "/dashboard/masters/hsn-master",
+        icon: Hash
+      },
+      {
+        name: "TM Code Master",
+        path: "/dashboard/masters/tm-master",
+        icon: Tag
+      },
+      {
+        name: "Series Master",
+        path: "/dashboard/masters/series-master",
+        icon: Database
+      },
+      {
+        name: "Prefix Master",
+        path: "/dashboard/masters/prefix-master",
+        icon: Database
+      },
+      {
+        name: "Salesman Master",
+        path: "/dashboard/masters/salesman-master",
+        icon: Users2
+      },
+      {
+        name: "Barcode Printing",
+        path: "/dashboard/masters/barcode-printing",
+        icon: Printer
+      }
+
+    ],
+  },
+
+   {
+    name: "Transactions",
+    icon: BadgeDollarSignIcon,
+    permission: "invoices",
+    children: [
+      {
+        name: "Purchase Voucher",
+        path: "/dashboard/transactions/purchase-voucher",
+        icon: ShoppingCartIcon,
+      },
+      {
+        name: "Purchase Return",
+        path: "/dashboard/transactions/purchase-return",
+        icon: RefreshCcw
+      },
+      {
+        name: "Quotation",
+        path: "/dashboard/transactions/quotation",
+        icon: Book
+      },
+      {
+        name: "Perfoma Invoice",
+        path: "/dashboard/transactions/perfoma-invoice",
+        icon: Paperclip
+      },
+      {
+        name: "Delivery Challan",
+        path: "/dashboard/transactions/delivery-challan",
+        icon: Layers2
+      },
+      {
+        name: "Jounral Entry",
+        path: "/dashboard/transactions/jounral-entry",
+        icon: BookSearch
+      },
+      {
+        name:"Cash Reciept",
+        path: "/dashboard/transactions/cash-reciept",
+        icon: DollarSign
+      },
+      {
+        name: "Bank Reciept",
+        path: "/dashboard/transactions/bank-receipt",
+        icon: Building
+      },
+    ],
+  },
+
+
+   {
+    name: "Reports",
+    icon: BarChart2,
+    permission: "invoices",
+    children: [
+      {
+        name: "Sales Register",
+        path: "/dashboard/reports/sales-register",
+        icon: CircleDollarSign,
+      },
+      {
+        name: "Purchase Register",
+        path: "/dashboard/reports/purchase-register",
+        icon: CheckLine
+      },
+      {
+        name: "Quotation Register",
+        path: "/dashboard/reports/quotation-register",
+        icon: Book
+      },
+      {
+        name: "Reciept Register",
+        path: "/dashboard/reports/reciept-register",
+        icon: BadgeDollarSignIcon
+      },
+      {
+        name: "Bank Register",
+        path: "/dashboard,reports,bank-register",
+        icon: Building
+      },
+    ],
+  },
+
+
+   {
+    name: "Ledger",
+    icon: BookDashed,
+    permission: "invoices",
+    children: [
+      {
+        name: "Account Wise Ledger",
+        path: "/dashboard/ledger/account-ledger",
+        icon: BarChart,
+      },
+      {
+        name: "Customer Wise Ledger",
+        path: "/dashboard/ledger/customer-ledger",
+        icon: Users2
+      },
+      {
+        name: "Suppiler Wise Ledger",
+        path: "/dashboard/ledger/supplier-ledger",
+        icon: ShoppingBag
+      },
+      {
+        name: "Bank Reconcilliation",
+        path: "/dashboard/ledger/reconcliation",
+        icon: RefreshCcw
+      },
+    ],
+  },
+ 
 
   {
     name: "Stock & Inventory",
