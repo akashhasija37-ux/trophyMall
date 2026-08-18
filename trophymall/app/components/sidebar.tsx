@@ -84,21 +84,21 @@ const menu = [
         path: "/dashboard/create-invoice",
         icon: FileText,
       },
-      {
-        name: "Quotations",
-        path: "/dashboard/billing/quotation",
-        icon: FileText,
-      },
-      {
-        name: "Proforma Invoice",
-        path: "/dashboard/billing/proforma",
-        icon: FileText,
-      },
-      {
-        name: "Delivery Challan",
-        path: "/dashboard/billing/challan",
-        icon: Truck,
-      },
+      // {
+      //   name: "Quotations",
+      //   path: "/dashboard/billing/quotation",
+      //   icon: FileText,
+      // },
+      // {
+      //   name: "Proforma Invoice",
+      //   path: "/dashboard/billing/proforma",
+      //   icon: FileText,
+      // },
+      // {
+      //   name: "Delivery Challan",
+      //   path: "/dashboard/billing/challan",
+      //   icon: Truck,
+      // },
       {
         name: "Booked Orders",
         path: "/dashboard/billing/booked-orders",
@@ -109,31 +109,31 @@ const menu = [
         path: "/dashboard/billing/sale-return",
         icon: ShoppingCart,
       },
-      {
-        name: "Purchase Voucher",
-        path: "/dashboard/billing/purchase-voucher",
-        icon: FileText,
-      },
-      {
-        name: "Purchase Return",
-        path: "/dashboard/billing/purchase-return",
-        icon: FileText,
-      },
-      {
-        name: "Journal Entry",
-        path: "/dashboard/billing/journal-entry",
-        icon: FileText,
-      },
-      {
-        name: "Cash Receipt",
-        path: "/dashboard/billing/cash-receipt",
-        icon: FileText,
-      },
-      {
-        name: "Bank Receipt",
-        path: "/dashboard/billing/bank-receipt",
-        icon: FileText,
-      },
+      // {
+      //   name: "Purchase Voucher",
+      //   path: "/dashboard/billing/purchase-voucher",
+      //   icon: FileText,
+      // },
+      // {
+      //   name: "Purchase Return",
+      //   path: "/dashboard/billing/purchase-return",
+      //   icon: FileText,
+      // },
+      // {
+      //   name: "Journal Entry",
+      //   path: "/dashboard/billing/journal-entry",
+      //   icon: FileText,
+      // },
+      // {
+      //   name: "Cash Receipt",
+      //   path: "/dashboard/billing/cash-receipt",
+      //   icon: FileText,
+      // },
+      // {
+      //   name: "Bank Receipt",
+      //   path: "/dashboard/billing/bank-receipt",
+      //   icon: FileText,
+      // },
       {
         name: "Cash Payment",
         path: "/dashboard/billing/cash-payment",
@@ -144,16 +144,16 @@ const menu = [
         path: "/dashboard/billing/bank-payment",
         icon: FileText,
       },
-      {
-        name: "Sale Register",
-        path: "/dashboard/billing/sale-register",
-        icon: ChartBar,
-      },
-      {
-        name: "Purchase Register",
-        path: "/dashboard/billing/purchase-register",
-        icon: ChartBar,
-      },
+      // {
+      //   name: "Sale Register",
+      //   path: "/dashboard/billing/sale-register",
+      //   icon: ChartBar,
+      // },
+      // {
+      //   name: "Purchase Register",
+      //   path: "/dashboard/billing/purchase-register",
+      //   icon: ChartBar,
+      // },
     ],
   },
   {
@@ -270,7 +270,7 @@ const menu = [
       },
       {
         name: "Cash Reciept",
-        path: "/dashboard/transactions/cash-reciept",
+        path: "/dashboard/transactions/cash-receipt",
         icon: DollarSign,
       },
       {
@@ -287,7 +287,7 @@ const menu = [
     children: [
       {
         name: "Sales Register",
-        path: "/dashboard/reports/sales-register",
+        path: "/dashboard/reports/sale-register",
         icon: CircleDollarSignIcon
       },
       {
@@ -334,7 +334,7 @@ const menu = [
       },
       {
         name: "Bank Reconcilliation",
-        path: "/dashboard/ledger/reconcliation",
+        path: "/dashboard/ledger/bank-recon",
         icon: RefreshCcw,
       },
     ],

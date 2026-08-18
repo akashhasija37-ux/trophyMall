@@ -67,7 +67,7 @@ export default function DeliveryChallanPage() {
           <div className="px-6 py-4 flex justify-between items-start">
             <div>
               <p className="text-xs text-gray-500 mb-1">
-                Billing Management / <span className="text-gray-300">Delivery Challan</span>
+                Transactions / <span className="text-gray-300">Delivery Challan</span>
               </p>
               <h1 className="text-xl font-bold text-white">Delivery Challan</h1>
             </div>
@@ -85,7 +85,7 @@ export default function DeliveryChallanPage() {
                 <h2 className="text-2xl font-bold text-white mb-1">Delivery Challan</h2>
                 <p className="text-sm text-gray-400">Non-GST document for samples, transfers & pre-invoice dispatch</p>
               </div>
-               <Link href="/dashboard/billing/challan/new-challan">
+               <Link href="/dashboard/transactions/new-challan">
               <button className="bg-[#ffa500] hover:bg-[#ff6600] text-white text-sm px-4 py-2 rounded flex items-center gap-2 transition-colors"
               style={{background:'#ffa500'}}
               >

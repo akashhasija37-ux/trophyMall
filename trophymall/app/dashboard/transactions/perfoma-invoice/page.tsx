@@ -167,7 +167,7 @@ export default function ProformaPage() {
         {/* TOP HEADER CONTROLS */}
         <div className="px-4 py-3 flex justify-between items-center border-b border-zinc-800 bg-[#0a0a0a]">
           <div className="flex items-center gap-4">
-            <h1 className="text-xl font-bold text-white">Proforma Invoice</h1>
+            <h1 className="text-xl font-bold text-white">Perfoma Invoice</h1>
             <span className="text-sm text-gray-500">{current.proformaNo}</span>
             <div className="flex items-center bg-zinc-900 rounded-full p-1 border border-zinc-800 ml-4">
               <button className="px-3 py-1 text-xs text-green-500 flex items-center gap-1">
