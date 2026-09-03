@@ -41,8 +41,11 @@ import {
   PanelLeftOpen,
   CircleDollarSignIcon,
   BarChart2,
+  Icon,
+  ShoppingBasketIcon,
 } from "lucide-react";
 import { isAdmin, hasPermission } from "@/utils/auth";
+import { permission } from "process";
 
 const menu = [
   {
@@ -68,6 +71,12 @@ const menu = [
     icon: Truck,
     path: "/dashboard/dispatch",
     permission: "dispatch",
+  },
+  {
+    name: "Category",
+    icon: ShoppingBasketIcon,
+    path: "/dashboard/inventory/categories",
+    permission: "invoices"
   },
   {
     name: "Billing Management",
