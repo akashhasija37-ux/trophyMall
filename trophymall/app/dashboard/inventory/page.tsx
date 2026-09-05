@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Sidebar from "@/app/components/sidebar";
 import Topbar from "@/app/components/topbar";
 import AddStockItemModal from "@/app/components/AddStockItemModal";
@@ -20,12 +20,16 @@ import {
   History,
   Search,
   Trash2,
+  Barcode,
+  Printer,
+  X,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
 type InventoryItem = {
   id: number;
   name: string;
+  tm_code?: string;
   sku: string;
   category: string;
   quantity: number;
@@ -34,6 +38,8 @@ type InventoryItem = {
   supplier: string;
   stock_status: string;
   notes?: string;
+  product_size?: string;
+  product_height_inches?: string | number;
 
   featured_image?: string;
   gallery_images?: string;
@@ -49,6 +55,10 @@ export default function InventoryPage() {
   const [filter, setFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [selectedItem, setSelectedItem] = useState<any>(null);
+
+  // Barcode / QR Modal State
+  const [barcodeItem, setBarcodeItem] = useState<InventoryItem | null>(null);
+  const barcodeRef = useRef<HTMLDivElement>(null);
 
   const [search, setSearch] = useState("");
 
@@ -74,24 +84,20 @@ export default function InventoryPage() {
   // ✅ SEARCH + FILTER COMBINED
   const filteredInventory = (inventory || []).filter((item) => {
     const status = getStockStatus(item.quantity);
-
     const searchText = search.toLowerCase();
 
-    // 🔍 SAFE SEARCH (no crash)
     const matchesSearch =
       (item.name || "").toLowerCase().includes(searchText) ||
+      (item.tm_code || "").toLowerCase().includes(searchText) ||
       (item.sku || "").toLowerCase().includes(searchText) ||
-      //(item.tm_code || "").toLowerCase().includes(searchText) ||
       (item.category || "").toLowerCase().includes(searchText) ||
       (item.supplier || "").toLowerCase().includes(searchText);
 
     if (!matchesSearch) return false;
 
-    // 📦 STOCK FILTER
     if (filter === "low" && status !== "Low Stock") return false;
     if (filter === "out" && status !== "Out of Stock") return false;
 
-    // 🏷 CATEGORY FILTER (case-safe)
     if (
       categoryFilter !== "all" &&
       (item.category || "").toLowerCase() !== categoryFilter.toLowerCase()
@@ -121,7 +127,7 @@ export default function InventoryPage() {
 
       if (res.ok) {
         toast.success("Deleted successfully");
-        fetchInventory(); // refresh list
+        fetchInventory();
       } else {
         alert(data.error || "Delete failed");
       }
@@ -131,20 +137,52 @@ export default function InventoryPage() {
     }
   };
 
-  const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
+  // ✅ PRINT BARCODE / QR LABEL
+  const handlePrintBarcode = () => {
+    const printContent = barcodeRef.current?.innerHTML;
+    if (!printContent) return;
 
+    const printWindow = window.open("", "", "width=600,height=600");
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Print Label - TrophyMall</title>
+            <style>
+              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #fff; }
+              .label-card { border: 2px dashed #333; padding: 20px; text-align: center; width: 320px; border-radius: 12px; background: #fff; }
+              .logo { font-size: 16px; font-weight: 900; letter-spacing: 2px; margin-bottom: 2px; }
+              .tagline { font-size: 9px; font-weight: bold; color: #16a34a; margin-bottom: 8px; }
+              .prod-img { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; margin: 0 auto 8px auto; border: 1px solid #ddd; }
+              .prod-name { font-size: 13px; font-weight: bold; margin-bottom: 4px; }
+              .meta { font-size: 11px; color: #555; margin-bottom: 8px; }
+              .barcode-img { width: 100%; height: 50px; object-fit: contain; margin-bottom: 4px; }
+              .tm-code { font-family: monospace; font-size: 12px; font-weight: bold; }
+              .price { font-size: 15px; font-weight: 900; color: #000; margin-top: 4px; }
+            </style>
+          </head>
+          <body>
+            <div class="label-card">${printContent}</div>
+            <script>
+              window.onload = function() { window.print(); window.close(); }
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+  };
+
+  const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
   const paginatedInventory = filteredInventory.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
 
-  console.log(paginatedInventory);
-
-  // ✅ EXPORT CSV
   const exportData = () => {
     const headers = [
       "featured_image",
-      "SKU",
+      "TM_Code",
       "Name",
       "Category",
       "Quantity",
@@ -154,7 +192,7 @@ export default function InventoryPage() {
 
     const rows = filteredInventory.map((i) => [
       i.featured_image,
-      i.sku,
+      i.tm_code || i.sku,
       i.name,
       i.category,
       i.quantity,
@@ -163,7 +201,6 @@ export default function InventoryPage() {
     ]);
 
     const csvContent = [headers, ...rows].map((e) => e.join(",")).join("\n");
-
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
 
@@ -221,7 +258,10 @@ export default function InventoryPage() {
                   product={{
                     id: selectedItem.id,
                     name: selectedItem.name,
+                    sku: selectedItem.sku,
                     quantity: selectedItem.quantity,
+                    selling_price: selectedItem.selling_price,
+                    discount: selectedItem.discount,
                   }}
                   onClose={() => {
                     setOpenEditStock(false);
@@ -252,8 +292,8 @@ export default function InventoryPage() {
               <div className="flex items-center gap-2 bg-zinc-800 px-3 py-2 rounded">
                 <Search size={16} />
                 <input
-                  placeholder="Search..."
-                  className="bg-transparent outline-none text-white"
+                  placeholder="Search by TM Code, Name..."
+                  className="bg-transparent outline-none text-white text-xs"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -261,7 +301,7 @@ export default function InventoryPage() {
 
               <button
                 onClick={() => setFilter("all")}
-                className={`px-3 py-1 rounded ${
+                className={`px-3 py-1 rounded text-xs ${
                   filter === "all"
                     ? "bg-green-600 text-white"
                     : "bg-zinc-800 text-gray-300"
@@ -272,7 +312,7 @@ export default function InventoryPage() {
 
               <button
                 onClick={() => setFilter("low")}
-                className={`px-3 py-1 rounded ${
+                className={`px-3 py-1 rounded text-xs ${
                   filter === "low"
                     ? "bg-yellow-500 text-black"
                     : "bg-zinc-800 text-gray-300"
@@ -283,7 +323,7 @@ export default function InventoryPage() {
 
               <button
                 onClick={() => setFilter("out")}
-                className={`px-3 py-1 rounded ${
+                className={`px-3 py-1 rounded text-xs ${
                   filter === "out"
                     ? "bg-red-600 text-white"
                     : "bg-zinc-800 text-gray-300"
@@ -296,19 +336,19 @@ export default function InventoryPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setCategoryFilter("all")}
-                className="px-3 py-1 bg-zinc-800 rounded text-white"
+                className="px-3 py-1 bg-zinc-800 rounded text-xs text-white"
               >
                 All
               </button>
               <button
                 onClick={() => setCategoryFilter("Finished Goods")}
-                className="px-3 py-1 bg-zinc-800 rounded text-white"
+                className="px-3 py-1 bg-zinc-800 rounded text-xs text-white"
               >
                 Finished
               </button>
               <button
                 onClick={() => setCategoryFilter("Raw Material")}
-                className="px-3 py-1 bg-zinc-800 rounded text-white"
+                className="px-3 py-1 bg-zinc-800 rounded text-xs text-white"
               >
                 Raw
               </button>
@@ -320,14 +360,15 @@ export default function InventoryPage() {
             <table className="w-full table-fixed border-collapse">
               <thead className="text-gray-400 text-sm border-b border-zinc-800">
                 <tr>
-                  <th className="text-left py-3 w-[120px]">Image</th>
-                  <th className="text-left py-3 w-[120px]">SKU</th>
-                  <th className="text-left w-[220px]">Name</th>
-                  <th className="text-left w-[160px]">Category</th>
-                  <th className="text-center w-[100px]">Stock</th>
-                  <th className="text-left w-[180px]">Supplier</th>
-                  <th className="text-center w-[120px]">Status</th>
-                  <th className="text-right w-[120px]">Actions</th>
+                  <th className="text-left py-3 w-[90px]">Image</th>
+                  <th className="text-left py-3 w-[120px]">TM Code</th>
+                  <th className="text-left w-[180px]">Name</th>
+                  <th className="text-left w-[130px]">Category</th>
+                  <th className="text-center w-[80px]">Height</th>
+                  <th className="text-center w-[80px]">Stock</th>
+                  <th className="text-left w-[140px]">Supplier</th>
+                  <th className="text-center w-[100px]">Status</th>
+                  <th className="text-right w-[140px]">Actions</th>
                 </tr>
               </thead>
 
@@ -345,35 +386,41 @@ export default function InventoryPage() {
                           <img
                             src={`/uploads/${item.featured_image}`}
                             alt={item.name}
-                            className="w-12 h-12 object-cover rounded"
+                            className="w-10 h-10 object-cover rounded"
                             onError={(e) => {
                               e.currentTarget.src = "/no-image.png";
                             }}
                           />
                         ) : (
-                          <span className="text-gray-400">No Image</span>
+                          <span className="text-gray-400 text-xs">No Image</span>
                         )}
                       </td>
-                      <td className="py-3 text-blue-400">{item.sku}</td>
+                      <td className="py-3 text-blue-400 text-xs font-mono">
+                        {item.tm_code || item.sku || `TM-${item.id}`}
+                      </td>
 
-                      <td className="text-white truncate">{item.name}</td>
+                      <td className="text-white truncate text-sm">{item.name}</td>
 
-                      <td className="text-gray-300">{item.category}</td>
+                      <td className="text-gray-300 text-xs">{item.category}</td>
 
-                      <td className="text-center text-white font-medium">
+                      <td className="text-center text-gray-300 text-xs">
+                        {item.product_height_inches ? `${item.product_height_inches}"` : "-"}
+                      </td>
+
+                      <td className="text-center text-white font-medium text-xs">
                         {item.quantity}
                       </td>
 
-                      <td className="text-gray-300">{item.supplier || "-"}</td>
+                      <td className="text-gray-300 text-xs truncate">{item.supplier || "-"}</td>
 
                       <td className="text-center">
                         <span
-                          className={`px-2 py-1 rounded text-xs ${
+                          className={`px-2 py-1 rounded text-[10px] ${
                             status === "In Stock"
                               ? "bg-green-500/20 text-green-400"
                               : status === "Low Stock"
-                                ? "bg-yellow-500/20 text-yellow-400"
-                                : "bg-red-500/20 text-red-400"
+                              ? "bg-yellow-500/20 text-yellow-400"
+                              : "bg-red-500/20 text-red-400"
                           }`}
                         >
                           {status}
@@ -381,9 +428,17 @@ export default function InventoryPage() {
                       </td>
 
                       <td className="text-right">
-                        <div className="flex justify-end gap-3">
-                          <Pencil
+                        <div className="flex justify-end gap-2.5 items-center">
+                          {/* 🏷 BARCODE / QR SCANNER LABEL BUTTON */}
+                          <Barcode
                             size={18}
+                            className="text-amber-400 hover:text-amber-300 cursor-pointer"
+                            title="Generate Scanner Label"
+                            onClick={() => setBarcodeItem(item)}
+                          />
+
+                          <Pencil
+                            size={16}
                             className="text-green-400 hover:text-green-300 cursor-pointer"
                             onClick={() => {
                               setSelectedItem(item);
@@ -392,7 +447,7 @@ export default function InventoryPage() {
                           />
 
                           <Trash2
-                            size={18}
+                            size={16}
                             className="text-red-400 hover:text-red-300 cursor-pointer"
                             onClick={() => handleDelete(item.id)}
                           />
@@ -414,7 +469,7 @@ export default function InventoryPage() {
                 <button
                   onClick={() => setCurrentPage((p) => p - 1)}
                   disabled={currentPage === 1}
-                  className="px-3 py-1 bg-zinc-800 text-white rounded disabled:opacity-40"
+                  className="px-3 py-1 bg-zinc-800 text-white rounded disabled:opacity-40 text-xs"
                 >
                   Prev
                 </button>
@@ -423,7 +478,7 @@ export default function InventoryPage() {
                   <button
                     key={i}
                     onClick={() => setCurrentPage(i + 1)}
-                    className={`px-3 py-1 rounded ${
+                    className={`px-3 py-1 rounded text-xs ${
                       currentPage === i + 1
                         ? "bg-green-600 text-white"
                         : "bg-zinc-800 text-gray-300"
@@ -436,7 +491,7 @@ export default function InventoryPage() {
                 <button
                   onClick={() => setCurrentPage((p) => p + 1)}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-1 bg-zinc-800 text-white rounded disabled:opacity-40"
+                  className="px-3 py-1 bg-zinc-800 text-white rounded disabled:opacity-40 text-xs"
                 >
                   Next
                 </button>
@@ -444,20 +499,88 @@ export default function InventoryPage() {
             </div>
           </div>
 
-          {/* VIEW MODAL */}
-          {selectedItem && !openEditStock && (
-            <div className="fixed inset-0 bg-black/70 flex justify-center items-center">
-              <div className="bg-zinc-900 p-6 rounded-xl">
-                <h2 className="text-white text-lg mb-4">{selectedItem.name}</h2>
-                <p className="text-gray-400">SKU: {selectedItem.sku}</p>
-                <p className="text-gray-400">Stock: {selectedItem.quantity}</p>
-
+          {/* 🏷 BARCODE SCANNER LABEL & DETAILS PREVIEW MODAL */}
+          {barcodeItem && (
+            <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-50">
+              <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl w-[400px] relative shadow-2xl">
                 <button
-                  onClick={() => setSelectedItem(null)}
-                  className="mt-4 bg-zinc-700 px-4 py-2 rounded text-white"
+                  onClick={() => setBarcodeItem(null)}
+                  className="absolute top-4 right-4 text-zinc-400 hover:text-white"
                 >
-                  Close
+                  <X size={18} />
                 </button>
+
+                <h3 className="text-white font-bold text-base mb-4 flex items-center gap-2">
+                  <Barcode className="text-green-500" size={20} /> Scanner Label & Details Preview
+                </h3>
+
+                {/* Printable Label Card matching exact specs (No category, height in inches, product image, TM Code for scanner) */}
+                <div
+                  ref={barcodeRef}
+                  className="bg-white text-black p-4 rounded-xl border-2 border-dashed border-zinc-400 text-center flex flex-col items-center shadow-inner"
+                >
+                  <h4 className="font-black text-sm tracking-widest uppercase m-0">TROPHY MALL</h4>
+                  <p className="text-[9px] font-bold text-green-600 uppercase tracking-wider mb-2">CRAFTED FOR LEGENDS</p>
+                  
+                  {/* Product Image */}
+                  {barcodeItem.featured_image ? (
+                    <img
+                      src={`/uploads/${barcodeItem.featured_image}`}
+                      alt={barcodeItem.name}
+                      className="w-16 h-16 object-cover rounded-lg mb-2 border border-zinc-300"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  ) : null}
+
+                  <p className="font-bold text-xs text-zinc-900 mb-1 line-clamp-1">{barcodeItem.name}</p>
+                  
+                  <p className="text-[10px] text-zinc-600 mb-2">
+                    Height: <span className="font-semibold">{barcodeItem.product_height_inches ? `${barcodeItem.product_height_inches} inches` : "Standard"}</span>
+                  </p>
+
+                  {/* Barcode Graphic generated from TM Code for scanner */}
+                  <div className="w-full bg-white py-1 flex flex-col items-center my-1">
+                    <img
+                      src={`https://barcodeapi.org/api/128/${barcodeItem.tm_code || barcodeItem.sku || `TM-${barcodeItem.id}`}`}
+                      alt="Scanner Barcode"
+                      className="w-full h-12 object-contain"
+                    />
+                    <span className="font-mono font-bold text-xs tracking-widest mt-1 text-black">
+                      {barcodeItem.tm_code || barcodeItem.sku || `TM-${barcodeItem.id}`}
+                    </span>
+                  </div>
+
+                  <p className="font-extrabold text-sm text-zinc-900 mt-2">
+                    MRP: ₹{barcodeItem.selling_price || 0}
+                  </p>
+                </div>
+
+                {/* Scan Simulator / Details Inspection */}
+                <div className="bg-[#18181c] p-3 rounded-xl border border-zinc-800 mt-4 text-xs space-y-1">
+                  <p className="text-zinc-400 font-semibold mb-1">🔍 Scanner Inspection Preview:</p>
+                  <p className="text-zinc-300">Name: <span className="text-white font-medium">{barcodeItem.name}</span></p>
+                  <p className="text-zinc-300">TM Code: <span className="text-blue-400 font-mono font-bold">{barcodeItem.tm_code || barcodeItem.sku}</span></p>
+                  <p className="text-zinc-300">Height: <span className="text-white font-medium">{barcodeItem.product_height_inches || "-"} inches</span></p>
+                  <p className="text-zinc-300">Price: <span className="text-green-400 font-bold">₹{barcodeItem.selling_price}</span></p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={handlePrintBarcode}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition"
+                  >
+                    <Printer size={15} /> Print / Download Label
+                  </button>
+                  <button
+                    onClick={() => setBarcodeItem(null)}
+                    className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2.5 rounded-xl text-xs font-semibold transition"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           )}

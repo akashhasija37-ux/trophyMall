@@ -2,7 +2,7 @@
 
 import { Modal, Form, Input, Select, DatePicker, Button } from "antd";
 import dayjs from "dayjs";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 
 const { TextArea } = Input;
@@ -11,17 +11,42 @@ export default function AddLeadModal({
   open,
   setOpen,
   refresh,
+  editData,
 }: {
   open: boolean;
   setOpen: any;
   refresh: () => void;
+  editData?: any;
 }) {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [leadStatus, setLeadStatus] = useState("Cold");
+
+  useEffect(() => {
+    if (editData) {
+      setLeadStatus(editData.lead_status);
+      form.setFieldsValue({
+        leadName: editData.lead_name,
+        contact: editData.contact_number,
+        email: editData.email,
+        company: editData.company_name,
+        leadSource: editData.lead_source,
+        product: editData.interested_product,
+        employee: editData.assigned_employee,
+        leadStatus: editData.lead_status,
+        lostReason: editData.lost_reason,
+        dateCreated: editData.created_at ? dayjs(editData.created_at) : dayjs(),
+        notes: editData.notes,
+      });
+    } else {
+      form.resetFields();
+      setLeadStatus("Cold");
+      form.setFieldValue("dateCreated", dayjs());
+    }
+  }, [editData, open, form]);
 
   const handleSubmit = async (values: any) => {
-    const toastId = toast.loading("Saving lead...");
-
+    const toastId = toast.loading(editData ? "Updating lead..." : "Saving lead...");
     setLoading(true);
 
     try {
@@ -34,32 +59,29 @@ export default function AddLeadModal({
         interested_product: values.product,
         assigned_employee: values.employee,
         lead_status: values.leadStatus,
-        created_at: values.dateCreated
-          ? dayjs(values.dateCreated).format("YYYY-MM-DD")
-          : null,
+        lost_reason: values.leadStatus === "Lost" ? values.lostReason : null,
+        created_at: values.dateCreated ? dayjs(values.dateCreated).format("YYYY-MM-DD") : null,
         notes: values.notes || "",
       };
 
-      const res = await fetch("/api/leads", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+      const endpoint = editData ? `/api/leads/${editData.id}` : "/api/leads";
+      const method = editData ? "PUT" : "POST";
+
+      const res = await fetch(endpoint, {
+        method,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        toast.success("Lead added successfully ✅", { id: toastId });
-
+        toast.success(editData ? "Lead updated successfully ✅" : "Lead added successfully ✅", { id: toastId });
         form.resetFields();
         setOpen(false);
-        refresh(); // 🔥 update leads table
+        refresh();
       } else {
-        toast.error(data.error || "Failed to save lead ❌", {
-          id: toastId,
-        });
+        toast.error(data.error || "Failed to save lead ❌", { id: toastId });
       }
     } catch (err) {
       console.error(err);
@@ -71,7 +93,7 @@ export default function AddLeadModal({
 
   return (
     <Modal
-      title="Add New Lead"
+      title={editData ? "Edit Lead" : "Add New Lead"}
       open={open}
       onCancel={() => setOpen(false)}
       footer={null}
@@ -119,25 +141,23 @@ export default function AddLeadModal({
           </Form.Item>
 
           {/* Company */}
-          <Form.Item
-            label="Company Name"
-            name="company"
-            rules={[{ required: true, message: "Please enter company name" }]}
-          >
+          <Form.Item label="Company Name" name="company">
             <Input placeholder="Company name" />
           </Form.Item>
 
-          {/* Lead Source */}
+          {/* Lead Source (Updated with client's options) */}
           <Form.Item
             label="Lead Source"
             name="leadSource"
             rules={[{ required: true, message: "Select lead source" }]}
           >
             <Select placeholder="Select source">
-              <Select.Option value="Website">Website</Select.Option>
               <Select.Option value="Instagram">Instagram</Select.Option>
-              <Select.Option value="WhatsApp">WhatsApp</Select.Option>
+              <Select.Option value="Facebook">Facebook</Select.Option>
+              <Select.Option value="Website">Website</Select.Option>
               <Select.Option value="Referral">Referral</Select.Option>
+              <Select.Option value="Walk-in">Walk-in</Select.Option>
+              <Select.Option value="Other">Other</Select.Option>
             </Select>
           </Form.Item>
 
@@ -158,19 +178,32 @@ export default function AddLeadModal({
             </Select>
           </Form.Item>
 
-          {/* Lead Status */}
+          {/* Lead Status (Includes Lost option) */}
           <Form.Item
             label="Lead Status"
             name="leadStatus"
             rules={[{ required: true }]}
           >
-            <Select>
+            <Select onChange={(val) => setLeadStatus(val)}>
               <Select.Option value="Cold">Cold</Select.Option>
               <Select.Option value="Warm">Warm</Select.Option>
               <Select.Option value="Hot">Hot</Select.Option>
               <Select.Option value="Converted">Converted</Select.Option>
+              <Select.Option value="Lost">Lost</Select.Option>
             </Select>
           </Form.Item>
+
+          {/* Conditional Lost Reason Field */}
+          {leadStatus === "Lost" && (
+            <Form.Item
+              label="Lost Reason"
+              name="lostReason"
+              rules={[{ required: true, message: "Please specify why the lead was lost" }]}
+              className="col-span-2"
+            >
+              <Input placeholder="e.g. High pricing, Went with competitor, etc." />
+            </Form.Item>
+          )}
 
           {/* Date */}
           <Form.Item label="Date Created" name="dateCreated">
@@ -179,10 +212,7 @@ export default function AddLeadModal({
 
           {/* Notes */}
           <Form.Item label="Notes" name="notes" className="col-span-2">
-            <TextArea
-              rows={4}
-              placeholder="Add any additional notes..."
-            />
+            <TextArea rows={4} placeholder="Add any additional notes..." />
           </Form.Item>
         </div>
 
@@ -193,7 +223,7 @@ export default function AddLeadModal({
             loading={loading}
             className="bg-green-600 hover:bg-green-700 border-none text-white"
           >
-            Save Lead
+            {editData ? "Update Lead" : "Save Lead"}
           </Button>
 
           <Button
