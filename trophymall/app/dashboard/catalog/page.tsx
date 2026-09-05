@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/app/components/sidebar";
 import Topbar from "@/app/components/topbar";
-import { Search, X, CheckCircle2, ShoppingBag, Plus, Minus, Trash2, ArrowRight, ChevronLeft, ChevronRight, SlidersHorizontal, ArrowLeft, Layers, Grid, AlertCircle, ArrowUpDown } from "lucide-react";
+import { Search, X, CheckCircle2, ShoppingBag, Plus, Minus, Trash2, ArrowRight, ChevronLeft, ChevronRight, SlidersHorizontal, ArrowLeft, Layers, Grid, AlertCircle, ChevronDown } from "lucide-react";
 
 export default function CatalogPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -14,11 +14,14 @@ export default function CatalogPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null);
 
-  // Filters & Sorting state
-  const [selectedSize, setSelectedSize] = useState("All");
-  const [selectedCondition, setSelectedCondition] = useState("All");
-  const [sortBy, setSortBy] = useState("featured");
-  const [priceRange, setPriceRange] = useState({ min: 0, max: 10000 });
+  // Filters & Sorting state matching Myntra UI layout
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [selectedColors, setSelectedColors] = useState<string[]>([]);
+  const [minDiscount, setMinDiscount] = useState<number>(0);
+  
+  const [sortBy, setSortBy] = useState("Recommended");
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const [priceRange, setPriceRange] = useState({ min: 200, max: 1100 });
   
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -48,7 +51,6 @@ export default function CatalogPage() {
     }
   };
 
-  // Derive unique Categories with counts and preview images
   const categoryList = Array.from(new Set(products.map((p) => p.category || "General").filter(Boolean))).map((cat) => {
     const catProducts = products.filter((p) => (p.category || "General") === cat);
     return {
@@ -58,7 +60,6 @@ export default function CatalogPage() {
     };
   });
 
-  // Derive Sub-Categories for the selected Category
   const subCategoryList = selectedCategory 
     ? Array.from(new Set(products.filter((p) => (p.category || "General") === selectedCategory).map((p) => p.sub_category || p.subcategory || p.subCategory || "Standard").filter(Boolean))).map((sub) => {
         const subProducts = products.filter((p) => (p.category || "General") === selectedCategory && ((p.sub_category || p.subcategory || p.subCategory || "Standard") === sub));
@@ -70,10 +71,33 @@ export default function CatalogPage() {
       })
     : [];
 
-  const sizes = ["All", ...new Set(products.map((p) => p.product_size || p.size || "Standard").filter(Boolean))];
-  const conditions = ["All", "New Arrived", "Featured", "Best Seller"];
+  const availableBrands = Array.from(new Set(products.map((p) => p.supplier || p.brand || "AMRIT TOP WEAR").filter(Boolean)));
+  const availableColors = [
+    { name: "Blue", hex: "#0070f3" },
+    { name: "Peach", hex: "#ffdab9" },
+    { name: "Beige", hex: "#f5f5dc" },
+    { name: "Yellow", hex: "#facc15" },
+    { name: "Maroon", hex: "#800000" },
+    { name: "White", hex: "#ffffff" },
+    { name: "Turquoise Blue", hex: "#06b6d4" },
+  ];
+  
+  const discountOptions = [50, 60, 70, 80];
 
-  // Cart Actions
+  const toggleBrandFilter = (brandName: string) => {
+    setSelectedBrands(prev => 
+      prev.includes(brandName) ? prev.filter(b => b !== brandName) : [...prev, brandName]
+    );
+    setPage(1);
+  };
+
+  const toggleColorFilter = (colorName: string) => {
+    setSelectedColors(prev => 
+      prev.includes(colorName) ? prev.filter(c => c !== colorName) : [...prev, colorName]
+    );
+    setPage(1);
+  };
+
   const addToCart = (product: any, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setCart((prev) => {
@@ -138,42 +162,33 @@ export default function CatalogPage() {
     }
   };
 
-  // Filtering & Sorting Logic for Products
   const filteredProducts = products.filter((p) => {
     const price = Number(p.selling_price || 0);
     const matchesPrice = price >= priceRange.min && price <= priceRange.max;
     
     const query = search.toLowerCase().trim();
     const productName = (p.name || "").toLowerCase();
-    const categoryName = (p.category || "").toLowerCase();
-    const subCategoryName = (p.sub_category || p.subcategory || p.subCategory || "").toLowerCase();
-    const skuCode = (p.sku || "").toLowerCase();
-    const tmCode = (p.tm_code || p.tmCode || "").toLowerCase();
-
-    const matchesSearch = 
-      !query || 
-      productName.includes(query) || 
-      categoryName.includes(query) || 
-      subCategoryName.includes(query) || 
-      skuCode.includes(query) || 
-      tmCode.includes(query);
+    const matchesSearch = !query || productName.includes(query);
     
-    const matchesCategory = !selectedCategory || (p.category || "General") === selectedCategory;
-    const matchesSubCategory = !selectedSubCategory || (p.sub_category || p.subcategory || p.subCategory || "Standard") === selectedSubCategory;
-    const matchesSize = selectedSize === "All" || (p.product_size || p.size) === selectedSize;
-    const matchesCondition = selectedCondition === "All" || (p.condition || p.badge || "New Arrived") === selectedCondition;
+    const itemBrand = p.supplier || p.brand || "AMRIT TOP WEAR";
+    const itemDisc = Number(p.discount || 0);
 
-    return matchesPrice && matchesSearch && matchesCategory && matchesSubCategory && matchesSize && matchesCondition;
+    const matchesCategoryCard = !selectedCategory || (p.category || "General") === selectedCategory;
+    const matchesSubCategoryCard = !selectedSubCategory || (p.sub_category || p.subcategory || "Standard") === selectedSubCategory;
+
+    const matchesBrand = selectedBrands.length === 0 || selectedBrands.includes(itemBrand);
+    const matchesDiscount = itemDisc >= minDiscount;
+
+    return matchesPrice && matchesSearch && matchesCategoryCard && matchesSubCategoryCard && matchesBrand && matchesDiscount;
   });
 
-  // Sorting logic
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     const priceA = Number(a.selling_price || 0);
     const priceB = Number(b.selling_price || 0);
-    if (sortBy === "price-low") return priceA - priceB;
-    if (sortBy === "price-high") return priceB - priceA;
-    if (sortBy === "new") return (b.id || 0) > (a.id || 0) ? 1 : -1;
-    return 0; // "featured" default
+    if (sortBy === "Price: Low to High") return priceA - priceB;
+    if (sortBy === "Price: High to Low") return priceB - priceA;
+    if (sortBy === "What's New") return (b.id || 0) > (a.id || 0) ? 1 : -1;
+    return 0; // "Recommended" default
   });
 
   const totalPages = Math.ceil(sortedProducts.length / pageSize) || 1;
@@ -208,105 +223,121 @@ export default function CatalogPage() {
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         <Topbar />
 
-        {/* MAIN SCROLLABLE AREA */}
         <div className="flex-1 overflow-y-auto custom-scrollbar flex">
           
-          {/* ================= LEFT SIDEBAR FILTERS (Only active in products view or universal) ================= */}
-          <aside className="w-80 border-r border-zinc-900 bg-[#0A0A0A] p-8 flex flex-col gap-6 shrink-0 hidden lg:flex overflow-y-auto custom-scrollbar">
+          {/* ================= EXACT MYNTRA-STYLE LEFT SIDEBAR FILTERS ================= */}
+          <aside className="w-72 border-r border-zinc-800 bg-[#0A0A0A] p-6 flex flex-col gap-6 shrink-0 hidden lg:flex overflow-y-auto custom-scrollbar">
             
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-300 flex items-center gap-2">
-                <SlidersHorizontal size={14} className="text-green-500" /> Filter Options
-              </h2>
+            {/* Header & Clear All */}
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <span className="text-xs font-black tracking-widest text-white uppercase">
+                FILTERS
+              </span>
               <button 
                 onClick={() => { 
-                  setSelectedSize("All"); 
-                  setSelectedCondition("All"); 
-                  setPriceRange({ min: 0, max: 10000 });
+                  setSelectedBrands([]);
+                  setSelectedColors([]);
+                  setMinDiscount(0);
+                  setPriceRange({ min: 200, max: 1100 });
                   setSearch("");
                   setPage(1);
                 }}
-                className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                className="text-[11px] text-red-400 hover:text-red-300 font-bold tracking-wider transition-colors uppercase"
               >
-                Reset filters
+                CLEAR ALL
               </button>
             </div>
 
-            {/* UNIVERSAL SEARCH */}
-            <div className="relative">
-              <Search size={15} className="absolute left-3.5 top-3.5 text-zinc-500" />
-              <input
-                type="text"
-                placeholder="Search name, SKU, TM Code..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); if (viewMode !== "products") setViewMode("products"); }}
-                className="w-full bg-[#141416] border border-zinc-800/80 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 transition-all"
-              />
-            </div>
-
-            {/* SIZE FILTER BUTTONS */}
-            <div className="flex flex-col gap-2">
-              <span className="text-[11px] font-bold tracking-wider text-zinc-500 uppercase">Filter by Size</span>
-              <div className="flex flex-wrap gap-1.5">
-                {sizes.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => { setSelectedSize(s); setPage(1); setViewMode("products"); }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-                      selectedSize === s
-                        ? "bg-green-700 text-white border-green-600 shadow-md"
-                        : "bg-[#141416] border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-white"
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
+            {/* BRAND SECTION */}
+            <div className="flex flex-col gap-3 pb-5 border-b border-zinc-800">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black tracking-widest text-white uppercase">BRAND</span>
+              </div>
+              <div className="flex flex-col gap-2.5 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                {availableBrands.map((brand: string) => {
+                  const isChecked = selectedBrands.includes(brand);
+                  const count = products.filter(p => (p.supplier || p.brand || "AMRIT TOP WEAR") === brand).length;
+                  return (
+                    <label key={brand} className="flex items-center justify-between text-xs text-zinc-300 hover:text-white cursor-pointer group">
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => { toggleBrandFilter(brand); setViewMode("products"); }}
+                          className="w-4 h-4 rounded bg-[#141416] border-zinc-700 text-green-600 focus:ring-0 cursor-pointer accent-green-600"
+                        />
+                        <span className="group-hover:translate-x-0.5 transition-transform text-zinc-200">{brand}</span>
+                      </div>
+                      <span className="text-[10px] text-zinc-500 font-mono">({count})</span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
 
-            {/* CONDITION FILTER */}
-            <div className="flex flex-col gap-2">
-              <span className="text-[11px] font-bold tracking-wider text-zinc-500 uppercase">Condition & Badge</span>
-              <div className="flex flex-wrap gap-1.5">
-                {conditions.map((cond) => (
-                  <button
-                    key={cond}
-                    onClick={() => { setSelectedCondition(cond); setPage(1); setViewMode("products"); }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-                      selectedCondition === cond
-                        ? "bg-green-700 text-white border-green-600 shadow-md"
-                        : "bg-[#141416] border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-white"
-                    }`}
-                  >
-                    {cond}
-                  </button>
-                ))}
+            {/* PRICE SECTION (Slider style range) */}
+            <div className="flex flex-col gap-3 pb-5 border-b border-zinc-800">
+              <span className="text-[11px] font-black tracking-widest text-white uppercase">PRICE</span>
+              
+              {/* Custom Pink Bar Range representation matching screenshot */}
+              <div className="relative flex items-center pt-2">
+                <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-pink-500 w-3/4 rounded-full" />
+                </div>
+                <div className="absolute left-1/4 w-3.5 h-3.5 bg-pink-500 rounded-full border-2 border-white shadow cursor-pointer" />
+                <div className="absolute right-1 w-3.5 h-3.5 bg-pink-500 rounded-full border-2 border-white shadow cursor-pointer" />
+              </div>
+
+              <div className="flex justify-between items-center text-xs font-bold text-white mt-1">
+                <span>₹{priceRange.min} - ₹{priceRange.max}+</span>
               </div>
             </div>
 
-            {/* PRICE RANGE */}
-            <div className="flex flex-col gap-2.5">
-              <span className="text-[11px] font-bold tracking-wider text-zinc-500 uppercase">Price Range (₹)</span>
-              <div className="flex items-center gap-3">
-                <div className="flex-1 bg-[#141416] border border-zinc-800 rounded-xl px-3 py-2 flex items-center gap-1 text-xs">
-                  <span className="text-zinc-600">₹</span>
-                  <input 
-                    type="number" 
-                    value={priceRange.min} 
-                    onChange={(e) => { setPriceRange({ ...priceRange, min: Number(e.target.value) }); setPage(1); setViewMode("products"); }}
-                    className="w-full bg-transparent text-white focus:outline-none" 
-                  />
-                </div>
-                <span className="text-zinc-600">-</span>
-                <div className="flex-1 bg-[#141416] border border-zinc-800 rounded-xl px-3 py-2 flex items-center gap-1 text-xs">
-                  <span className="text-zinc-600">₹</span>
-                  <input 
-                    type="number" 
-                    value={priceRange.max} 
-                    onChange={(e) => { setPriceRange({ ...priceRange, max: Number(e.target.value) }); setPage(1); setViewMode("products"); }}
-                    className="w-full bg-transparent text-white focus:outline-none" 
-                  />
-                </div>
+            {/* COLOR SECTION WITH SEARCH ICON */}
+            <div className="flex flex-col gap-3 pb-5 border-b border-zinc-800">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black tracking-widest text-white uppercase">COLOR</span>
+                <Search size={14} className="text-zinc-400 cursor-pointer hover:text-white" />
+              </div>
+              <div className="flex flex-col gap-2.5 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                {availableColors.map((col) => {
+                  const isChecked = selectedColors.includes(col.name);
+                  return (
+                    <label key={col.name} className="flex items-center justify-between text-xs text-zinc-300 hover:text-white cursor-pointer group">
+                      <div className="flex items-center gap-2.5">
+                        <input 
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => { toggleColorFilter(col.name); setViewMode("products"); }}
+                          className="w-4 h-4 rounded bg-[#141416] border-zinc-700 text-green-600 focus:ring-0 cursor-pointer accent-green-600"
+                        />
+                        <div className="w-3 h-3 rounded-full border border-zinc-700 shrink-0" style={{ backgroundColor: col.hex }} />
+                        <span className="group-hover:translate-x-0.5 transition-transform text-zinc-200">{col.name}</span>
+                      </div>
+                      <span className="text-[10px] text-zinc-500 font-mono">(12)</span>
+                    </label>
+                  );
+                })}
+                <span className="text-xs text-pink-500 font-semibold cursor-pointer pt-1 hover:underline">+ 15 more</span>
+              </div>
+            </div>
+
+            {/* DISCOUNT RANGE RADIO BUTTONS */}
+            <div className="flex flex-col gap-3">
+              <span className="text-[11px] font-black tracking-widest text-white uppercase">DISCOUNT RANGE</span>
+              <div className="flex flex-col gap-2.5">
+                {discountOptions.map((disc) => (
+                  <label key={disc} className="flex items-center gap-3 text-xs text-zinc-300 hover:text-white cursor-pointer group">
+                    <input 
+                      type="radio"
+                      name="discountRange"
+                      checked={minDiscount === disc}
+                      onChange={() => { setMinDiscount(disc); setPage(1); setViewMode("products"); }}
+                      className="w-4 h-4 bg-[#141416] border-zinc-700 text-green-600 focus:ring-0 cursor-pointer accent-green-600"
+                    />
+                    <span className="group-hover:translate-x-0.5 transition-transform text-zinc-200">{disc}% and above</span>
+                  </label>
+                ))}
               </div>
             </div>
 
@@ -315,11 +346,9 @@ export default function CatalogPage() {
           {/* ================= RIGHT MAIN CONTENT AREA ================= */}
           <main className="flex-1 p-8 lg:p-12 flex flex-col gap-8 max-w-[1400px]">
             
-            {/* TOP NAVIGATION BREADCRUMBS & SORTING BAR */}
             <div className="flex flex-col gap-6">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 
-                {/* BREADCRUMB / VIEW TITLE */}
                 <div className="flex items-center gap-3">
                   {viewMode !== "categories" && (
                     <button
@@ -353,22 +382,41 @@ export default function CatalogPage() {
                   </div>
                 </div>
                 
-                {/* SORT BY DROPDOWN & VIEW CART */}
+                {/* SORT BY DROPDOWN MATCHING REFERENCE SCREENSHOT */}
                 <div className="flex items-center gap-3">
                   {viewMode === "products" && (
-                    <div className="flex items-center gap-2 bg-[#121215] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs">
-                      <ArrowUpDown size={14} className="text-zinc-500" />
-                      <span className="text-zinc-400">Sort:</span>
-                      <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value)}
-                        className="bg-transparent text-white focus:outline-none font-medium cursor-pointer"
+                    <div className="relative">
+                      <button
+                        onClick={() => setIsSortOpen(!isSortOpen)}
+                        className="flex items-center gap-2 bg-[#121215] border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-white font-medium hover:border-zinc-700 transition-all cursor-pointer"
                       >
-                        <option value="featured" className="bg-zinc-900">Featured</option>
-                        <option value="new" className="bg-zinc-900">New Arrival</option>
-                        <option value="price-low" className="bg-zinc-900">Price: Low to High</option>
-                        <option value="price-high" className="bg-zinc-900">Price: High to Low</option>
-                      </select>
+                        <span>Sort by : <strong className="text-green-400">{sortBy}</strong></span>
+                        <ChevronDown size={14} className="text-zinc-400" />
+                      </button>
+
+                      {isSortOpen && (
+                        <div className="absolute right-0 mt-2 w-56 bg-[#16161a] border border-zinc-800 rounded-2xl shadow-2xl z-50 py-2">
+                          {[
+                            "Recommended",
+                            "What's New",
+                            "Popularity",
+                            "Better Discount",
+                            "Price: High to Low",
+                            "Price: Low to High",
+                            "Customer Rating",
+                          ].map((opt) => (
+                            <button
+                              key={opt}
+                              onClick={() => { setSortBy(opt); setIsSortOpen(false); }}
+                              className={`w-full text-left px-4 py-2.5 text-xs transition-colors ${
+                                sortBy === opt ? "text-green-400 font-bold bg-zinc-900" : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                              }`}
+                            >
+                              {opt}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -406,7 +454,6 @@ export default function CatalogPage() {
                     }}
                     className="group relative bg-[#121215] border border-zinc-800/80 rounded-2xl p-6 cursor-pointer flex flex-col justify-between transition-all duration-300 hover:border-zinc-600 hover:shadow-2xl overflow-hidden h-64"
                   >
-                    {/* Category Background Preview Image */}
                     {cat.image && (
                       <div className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity overflow-hidden">
                         <img src={`/uploads/${cat.image}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
@@ -439,7 +486,6 @@ export default function CatalogPage() {
             {/* ================= VIEW 2: SUB-CATEGORY CARDS ================= */}
             {viewMode === "subcategories" && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
-                {/* Option to view all items in category */}
                 <div
                   onClick={() => {
                     setSelectedSubCategory(null);
@@ -505,7 +551,6 @@ export default function CatalogPage() {
                           onClick={() => { setSelectedProduct(item); setActiveImageIndex(0); }}
                           className="group relative bg-[#121215] border border-zinc-800/80 rounded-2xl p-6 cursor-pointer flex flex-col justify-between transition-all duration-300 hover:border-zinc-700 hover:shadow-2xl overflow-hidden"
                         >
-                          {/* TOP BADGES */}
                           <div className="flex items-center justify-between z-10 mb-2">
                             <span className="bg-green-950/80 border border-green-800/60 text-green-400 text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider">
                               {conditionBadge}
@@ -513,7 +558,6 @@ export default function CatalogPage() {
                             {getStockBadge(stockQty)}
                           </div>
 
-                          {/* PRODUCT IMAGE CONTAINER WITH ZOOM HOVER */}
                           <div className="relative w-full h-52 my-2 flex items-center justify-center overflow-hidden rounded-xl bg-zinc-950/40">
                             <img
                               src={`/uploads/${item.featured_image}`}
@@ -525,7 +569,6 @@ export default function CatalogPage() {
                             />
                           </div>
 
-                          {/* PRODUCT DETAILS FOOTER */}
                           <div className="flex items-end justify-between mt-auto pt-4 border-t border-zinc-800/50">
                             <div>
                               <h3 className="text-white text-sm font-medium group-hover:text-green-400 transition-colors">
@@ -556,7 +599,6 @@ export default function CatalogPage() {
                   )}
                 </div>
 
-                {/* ================= ENHANCED PAGINATION CONTROLS ================= */}
                 {totalPages > 1 && (
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 pb-12 border-t border-zinc-800/60 mt-4">
                     <span className="text-xs text-zinc-500">
@@ -627,7 +669,6 @@ export default function CatalogPage() {
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-end">
           <div className="w-full max-w-md bg-[#121215] border-l border-zinc-800 h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
             
-            {/* Drawer Header */}
             <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
               <h2 className="text-white font-bold text-base flex items-center gap-2">
                 <ShoppingBag size={18} className="text-green-500" /> Your Shopping Cart ({cart.reduce((s, i) => s + i.quantity, 0)})
@@ -640,7 +681,6 @@ export default function CatalogPage() {
               </button>
             </div>
 
-            {/* Drawer Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
               {orderSuccess ? (
                 <div className="h-full flex flex-col items-center justify-center text-center space-y-3">
@@ -731,7 +771,6 @@ export default function CatalogPage() {
               )}
             </div>
 
-            {/* Drawer Footer */}
             {!orderSuccess && cart.length > 0 && !isCheckingOut && (
               <div className="p-6 border-t border-zinc-800 bg-[#141418] space-y-3">
                 <div className="flex justify-between text-xs text-zinc-400">
@@ -761,7 +800,6 @@ export default function CatalogPage() {
           <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex justify-center items-center z-50 p-4">
             <div className="bg-[#161618] border border-zinc-800 rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
               
-              {/* Modal Header */}
               <div className="px-8 py-5 flex items-center justify-between border-b border-zinc-800 shrink-0">
                 <div>
                   <span className="text-xs font-mono text-zinc-500 uppercase">{selectedProduct.sku || selectedProduct.tm_code || "SKU-N/A"}</span>
@@ -775,10 +813,8 @@ export default function CatalogPage() {
                 </button>
               </div>
 
-              {/* Modal Body */}
               <div className="p-8 overflow-y-auto custom-scrollbar grid grid-cols-1 md:grid-cols-2 gap-8">
                 
-                {/* Image Preview & Thumbnails Gallery */}
                 <div className="space-y-4">
                   <div className="w-full h-80 bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden flex items-center justify-center p-4">
                     <img
@@ -788,7 +824,6 @@ export default function CatalogPage() {
                     />
                   </div>
 
-                  {/* Gallery Thumbnails List */}
                   {allImages.length > 1 && (
                     <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
                       {allImages.map((img: string, i: number) => (
@@ -810,7 +845,6 @@ export default function CatalogPage() {
                   )}
                 </div>
 
-                {/* Details & Specs */}
                 <div className="flex flex-col justify-between space-y-6">
                   <div className="space-y-4">
                     <div className="bg-[#1c1c21] border border-zinc-800/80 rounded-2xl p-5 space-y-3.5">

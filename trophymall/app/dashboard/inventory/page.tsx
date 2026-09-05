@@ -433,7 +433,7 @@ export default function InventoryPage() {
                           <Barcode
                             size={18}
                             className="text-amber-400 hover:text-amber-300 cursor-pointer"
-                            title="Generate Scanner Label"
+                            //title="Generate Scanner Label"
                             onClick={() => setBarcodeItem(item)}
                           />
 
