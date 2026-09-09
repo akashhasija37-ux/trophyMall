@@ -15,11 +15,8 @@ import {
   Plus,
   RotateCcw,
   X,
+  Download,
 } from "lucide-react";
-
-/* ==============================
-   TYPES
-================================= */
 
 type InvoiceItem = {
   product: string;
@@ -37,30 +34,24 @@ type InvoiceItem = {
 type InvoiceTab = {
   id: string;
   isSaved?: boolean;
-
   customer?: number;
   customerName?: string;
   customerMobile?: string;
   customerCode?: string;
   customerGst?: string;
   customerAddress?: string;
-
   invoiceNo: string;
   invoiceDate: string;
   dueDate: string;
-
   paymentStatus: string;
   paymentType: string;
   orderType: string;
   deliveryMethod: string;
   paymentMethod: string;
-
   salesperson_id?: number;
   assigned_to?: number;
-
   notes: string;
   items: InvoiceItem[];
-
   discount: number;
   additionalDiscount: number;
   gst: number;
@@ -70,34 +61,25 @@ type InvoiceTab = {
   roundOff: number;
 };
 
-/* ==============================
-   HELPERS
-================================= */
-
 const createNewInvoiceTab = (index: number): InvoiceTab => ({
   id: crypto.randomUUID(),
   isSaved: false,
-
   customer: undefined,
   customerName: "",
   customerMobile: "",
   customerCode: `CUST-${Math.floor(1000 + Math.random() * 9000)}`,
   customerGst: "",
   customerAddress: "",
-
   invoiceNo: `25-26/${Math.floor(2000 + Math.random() * 9000)}`,
   invoiceDate: dayjs().format("YYYY-MM-DD"),
   dueDate: dayjs().format("YYYY-MM-DD"),
-
   paymentStatus: "Pending",
   paymentType: "Final Payment",
   orderType: "Spot Delivery",
   deliveryMethod: "Self Pickup",
   paymentMethod: "Cash",
-
   salesperson_id: undefined,
   assigned_to: undefined,
-
   notes: "",
   items: [
     {
@@ -111,7 +93,6 @@ const createNewInvoiceTab = (index: number): InvoiceTab => ({
       gstPercent: 5,
     },
   ],
-
   discount: 0,
   additionalDiscount: 0,
   gst: 5,
@@ -121,10 +102,6 @@ const createNewInvoiceTab = (index: number): InvoiceTab => ({
   roundOff: 0,
 });
 
-/* ==============================
-   COMPONENT
-================================= */
-
 export default function SalesVoucherPage({ refresh }: any) {
   const [customers, setCustomers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -133,26 +110,19 @@ export default function SalesVoucherPage({ refresh }: any) {
   const [invoiceType, setInvoiceType] = useState("GST Invoice"); 
   const [showEwayBill, setShowEwayBill] = useState(false);
 
-  // E-Way Bill Form Fields
   const [transporterId, setTransporterId] = useState("");
   const [vehicleNo, setVehicleNo] = useState("");
   const [distanceKm, setDistanceKm] = useState("");
   const [transportMode, setTransportMode] = useState("Road");
 
-  // Quick Customer Modal
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [newCustData, setNewCustData] = useState({ name: "", phone: "", gst: "", address: "" });
 
-  // Quick Product Modal (F3)
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [newProdData, setNewProdData] = useState({ name: "", barcode: "", hsn: "", price: "", stock: "" });
 
-  // Print Preview Modal
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
-  /* ==============================
-     MULTI TAB STATE
-  ================================= */
   const [invoiceTabs, setInvoiceTabs] = useState<InvoiceTab[]>([
     createNewInvoiceTab(0),
   ]);
@@ -171,41 +141,7 @@ export default function SalesVoucherPage({ refresh }: any) {
     fetchCustomers();
     fetchProducts();
     fetchEmployees();
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F5") {
-        e.preventDefault();
-        saveCurrentInvoice();
-      } else if (e.key === "F6") {
-        e.preventDefault();
-        handlePrint();
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        handleCancel();
-      } else if (e.key === "F3") {
-        e.preventDefault();
-        setIsProductModalOpen(true);
-      } else if (e.ctrlKey && e.key.toLowerCase() === "w") {
-        e.preventDefault();
-        handleWhatsApp();
-      } else if (e.key === "Enter") {
-        const target = e.target as HTMLElement;
-        if (target && (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA")) {
-          const focusableElements = Array.from(
-            document.querySelectorAll("input, select, textarea, button")
-          ) as HTMLElement[];
-          const index = focusableElements.indexOf(target);
-          if (index > -1 && focusableElements[index + 1]) {
-            e.preventDefault();
-            focusableElements[index + 1].focus();
-          }
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentInvoice, invoiceTabs]);
+  }, []);
 
   const fetchCustomers = async () => {
     try {
@@ -469,9 +405,6 @@ export default function SalesVoucherPage({ refresh }: any) {
     }
   };
 
-  /* ==============================
-     CALCULATIONS
-  ================================= */
   const subtotal = currentInvoice.items.reduce((sum, item) => sum + (item.qty * item.price), 0);
   const totalTradeDiscount = currentInvoice.items.reduce((sum, item) => sum + ((item.qty * item.price) * (item.discount / 100)), 0) + currentInvoice.discount;
   const netAmountBeforeGst = subtotal - totalTradeDiscount;
@@ -481,23 +414,21 @@ export default function SalesVoucherPage({ refresh }: any) {
   const sgstAmount = invoiceType === "Non-GST Invoice" ? 0 : (netAmountBeforeGst * (effectiveGstPercent / 2)) / 100;
   
   const grandTotal = netAmountBeforeGst + cgstAmount + sgstAmount + currentInvoice.freight + currentInvoice.otherCharges;
-  
   const calculatedRoundOff = currentInvoice.roundOff !== 0 ? currentInvoice.roundOff : Math.round(grandTotal) - grandTotal;
   const finalPayable = grandTotal + calculatedRoundOff;
 
-  /* ==============================
-     API INTEGRATION
-  ================================= */
   const saveCurrentInvoice = async () => {
     try {
       const payload = {
         invoice_no: currentInvoice.invoiceNo,
         invoice_type: invoiceType,
         customer_id: currentInvoice.customer || null,
-        customer_name: currentInvoice.customerName || "DINESH RASAL",
+        customer_name: currentInvoice.customerName || "Walk-in Customer",
         invoice_date: currentInvoice.invoiceDate,
         due_date: currentInvoice.dueDate,
-        payment_status: currentInvoice.paymentStatus,
+        payment_status: currentInvoice.paymentType === "Credit" ? "Overdue" : "Paid",
+        payment_method: currentInvoice.paymentMethod,
+        payment_type: currentInvoice.paymentType,
         salesperson_id: currentInvoice.salesperson_id || null,
         assigned_to: currentInvoice.assigned_to || null,
         notes: currentInvoice.notes,
@@ -536,7 +467,7 @@ export default function SalesVoucherPage({ refresh }: any) {
 
   const handlePrint = () => {
     if (!currentInvoice.isSaved) {
-      message.error("Cannot print! Invoice does not exist in the database. Please save the invoice first (F5).");
+      message.error("Cannot print! Please save the invoice first (F5).");
       return;
     }
     setIsPrintModalOpen(true);
@@ -562,20 +493,79 @@ export default function SalesVoucherPage({ refresh }: any) {
     closeInvoiceTab(activeTab);
   };
 
-  const handleGenerateEwayBillFromPortal = () => {
+  // ✅ E-WAY BILL JSON EXPORT & REDIRECT TO GOVT PORTAL
+  const handleDownloadEwayJson = () => {
     if (!currentInvoice.isSaved) {
-      message.error("Please save the invoice first before generating an E-Way bill.");
+      message.error("Please save the invoice first (F5) before generating the E-Way JSON file.");
       return;
     }
-    if (!transporterId || !vehicleNo) {
-      message.error("Please provide Transporter ID and Vehicle Number");
-      return;
-    }
-    message.loading({ content: "Connecting to NIC E-Way Bill Portal...", key: "eway" });
-    setTimeout(() => {
-      message.success({ content: "E-Way Bill Generated Successfully! EBN: 341526789012", key: "eway", duration: 4 });
-      setShowEwayBill(false);
-    }, 1500);
+
+    const ewayJson = {
+      version: "1.0.0219",
+      billLists: [
+        {
+          userGstin: "27AEOPN2614P1ZX",
+          supplyType: "O",
+          subSupplyType: 1,
+          docType: "INV",
+          docNo: currentInvoice.invoiceNo,
+          docDate: dayjs(currentInvoice.invoiceDate).format("DD/MM/YYYY"),
+          transType: 1,
+          fromGstin: "27AEOPN2614P1ZX",
+          fromTrdName: "TROPHY MALL",
+          fromAddr1: "1st Floor, Murlidhar Complex Central Hospital Road Above Indian Bank Ulhasnagar",
+          fromPlace: "Ulhasnagar",
+          fromPincode: 421003,
+          fromStateCode: 27,
+          toGstin: currentInvoice.customerGst || "URP",
+          toTrdName: currentInvoice.customerName || "Walk-in Customer",
+          toAddr1: currentInvoice.customerAddress || "Maharashtra",
+          toPlace: "Mumbai",
+          toPincode: 400001,
+          toStateCode: 27,
+          totalvalue: Number(netAmountBeforeGst.toFixed(2)),
+          cgstValue: Number(cgstAmount.toFixed(2)),
+          sgstValue: Number(sgstAmount.toFixed(2)),
+          igstValue: 0,
+          cessValue: 0,
+          totInvValue: Number(finalPayable.toFixed(2)),
+          transMode: transportMode === "Road" ? 1 : 2,
+          transDistance: Number(distanceKm) || 50,
+          transporterName: "TEMPO",
+          transporterId: transporterId || "",
+          transDocNo: currentInvoice.invoiceNo,
+          transDocDate: dayjs(currentInvoice.invoiceDate).format("DD/MM/YYYY"),
+          vehicleNo: vehicleNo || "MH04AB1234",
+          vehicleType: "R",
+          mainHsnCode: currentInvoice.items[0]?.hsn || 8306,
+          itemList: currentInvoice.items.map((item, idx) => ({
+            itemNo: idx + 1,
+            productName: item.product || "Trophy",
+            productDesc: item.product || "Trophy",
+            hsnCode: Number(item.hsn) || 8306,
+            quantity: item.qty,
+            qtyUnit: item.unit || "PCS",
+            taxableAmount: Number((item.qty * item.price).toFixed(2)),
+            sgstRate: Number((item.gstPercent / 2).toFixed(2)),
+            cgstRate: Number((item.gstPercent / 2).toFixed(2)),
+            igstRate: 0.00,
+            cessRate: 0.00,
+          })),
+        },
+      ],
+    };
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(ewayJson, null, 2));
+    const downloadAnchor = document.createElement("a");
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `EWAY_${currentInvoice.invoiceNo.replace("/", "-")}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+
+    message.success("E-Way Bill JSON downloaded successfully!");
+    window.open("https://ewaybillgst.gov.in/Account/EWBUserRegistration.aspx", "_blank");
+    setShowEwayBill(false);
   };
 
   return (
@@ -585,7 +575,6 @@ export default function SalesVoucherPage({ refresh }: any) {
       <div className="flex flex-col flex-1 h-screen overflow-hidden">
         <Topbar />
 
-        {/* MAIN SCROLLABLE CONTENT */}
         <div className="flex-1 overflow-y-auto pb-12 custom-scrollbar">
           <div className="px-6 py-4 space-y-4 max-w-[1700px] mx-auto">
             
@@ -668,7 +657,7 @@ export default function SalesVoucherPage({ refresh }: any) {
                   onClick={() => setShowEwayBill(!showEwayBill)}
                   className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded border transition-colors ${showEwayBill ? 'bg-zinc-700 text-white border-zinc-500' : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-white'}`}
                 >
-                  <FileText size={14} /> E-Way Bill
+                  <FileText size={14} /> E-Way Bill JSON
                 </button>
                 <button onClick={handleWhatsApp} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-zinc-800 hover:bg-zinc-700 rounded border border-zinc-700 text-white transition-colors">
                   <MessageSquare size={14} /> WhatsApp
@@ -691,15 +680,16 @@ export default function SalesVoucherPage({ refresh }: any) {
                 <button onClick={() => setShowEwayBill(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors">
                   <X size={18} />
                 </button>
-                <h3 className="text-white font-semibold text-sm mb-4">Generate E-Way Bill from Govt Portal</h3>
+                <h3 className="text-white font-semibold text-sm mb-2">Export E-Way Bill JSON & Redirect to Govt Portal</h3>
+                <p className="text-xs text-zinc-400 mb-4">Provide transport details below to generate the official NIC-compliant JSON file.</p>
                 <div className="grid grid-cols-4 gap-4 mb-4">
                   <input type="text" readOnly value={currentInvoice.invoiceNo} className="bg-[#1a1a1a] border border-zinc-700 rounded px-3 py-2 text-sm text-gray-400 outline-none" />
                   <input type="text" readOnly value={`₹${finalPayable.toFixed(2)}`} className="bg-[#1a1a1a] border border-zinc-700 rounded px-3 py-2 text-sm text-gray-400 outline-none" />
                   <input type="text" value={transporterId} onChange={(e) => setTransporterId(e.target.value)} placeholder="Transporter ID" className="bg-[#1a1a1a] border border-zinc-700 rounded px-3 py-2 text-sm text-white outline-none" />
                   <input type="text" value={vehicleNo} onChange={(e) => setVehicleNo(e.target.value)} placeholder="Vehicle No (e.g. MH12AB1234)" className="bg-[#1a1a1a] border border-zinc-700 rounded px-3 py-2 text-sm text-white outline-none" />
                 </div>
-                <button onClick={handleGenerateEwayBillFromPortal} className="bg-[#ff5722] hover:bg-[#e64a19] text-white py-2 px-4 rounded text-sm font-medium">
-                  Submit to Govt Portal & Generate E-Way Bill
+                <button onClick={handleDownloadEwayJson} className="bg-[#ff5722] hover:bg-[#e64a19] text-white py-2 px-5 rounded text-xs font-bold flex items-center gap-2">
+                  <Download size={14} /> Download E-Way JSON & Open Govt Portal
                 </button>
               </div>
             )}
@@ -975,34 +965,7 @@ export default function SalesVoucherPage({ refresh }: any) {
 
       </div>
 
-      {/* ================= PRINT MEDIA STYLING (Hides UI elements and forces single-page dark invoice print) ================= */}
-      <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          #printable-invoice, #printable-invoice * {
-            visibility: visible;
-          }
-          #printable-invoice {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            margin: 0;
-            padding: 15px;
-            background: #121212 !important;
-            color: #ffffff !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-          .ant-modal-mask, .ant-modal-wrap {
-            background: transparent !important;
-          }
-        }
-      `}</style>
-
-      {/* ================= EXACT PDF TEMPLATE MODAL WITH DARK THEME, LOGO & QR ================= */}
+      {/* PRINT MODAL & QUICK MODALS */}
       <Modal
         open={isPrintModalOpen}
         onCancel={() => setIsPrintModalOpen(false)}
@@ -1011,8 +974,6 @@ export default function SalesVoucherPage({ refresh }: any) {
         className="dark-print-modal"
       >
         <div id="printable-invoice" className="bg-[#121212] text-gray-200 p-8 font-sans text-xs select-none border border-zinc-800 rounded-2xl shadow-2xl">
-          
-          {/* HEADER SECTION WITH LOGO & QR */}
           <div className="flex justify-between items-start border-b border-zinc-800 pb-6 mb-6">
             <div className="flex items-center gap-4">
               <img src="/logo/logo.png" alt="TrophyMall Logo" className="w-16 h-16 object-contain" onError={(e)=>{ e.currentTarget.style.display='none'; }} />
@@ -1043,7 +1004,6 @@ export default function SalesVoucherPage({ refresh }: any) {
             MEDALS / TROPHIES / MEMENTOS / CUPS / AWARDS / BADGES / CERTIFICATES / SPORTS TROPHIES
           </div>
 
-          {/* CUSTOMER & INVOICE DETAILS */}
           <div className="grid grid-cols-2 gap-4 border border-zinc-800 p-4 rounded-xl mb-6 bg-[#18181c]">
             <div className="space-y-1.5">
               <p><span className="font-bold text-zinc-400">Customer Name :</span> <span className="text-white font-semibold">{currentInvoice.customerName || "DINESH RASAL"}</span></p>
@@ -1057,7 +1017,6 @@ export default function SalesVoucherPage({ refresh }: any) {
             </div>
           </div>
 
-          {/* ITEMS TABLE */}
           <table className="w-full border-collapse border border-zinc-800 text-xs mb-6 rounded-xl overflow-hidden">
             <thead>
               <tr className="bg-zinc-900 text-zinc-300 border-b border-zinc-800">
@@ -1096,7 +1055,6 @@ export default function SalesVoucherPage({ refresh }: any) {
             </tbody>
           </table>
 
-          {/* SUMMARY & BANK DETAILS */}
           <div className="grid grid-cols-2 gap-4 border border-zinc-800 p-4 rounded-xl mb-6 bg-[#18181c]">
             <div className="space-y-1.5 border-r border-zinc-800 pr-4">
               <p className="font-bold text-white underline">Bank Details :</p>

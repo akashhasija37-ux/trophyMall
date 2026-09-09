@@ -1,6 +1,9 @@
 import db from "../../../backend/config/db";
+import { NextResponse } from "next/server";
 
+// ==============================
 // ✅ GET ALL INVOICES
+// ==============================
 export async function GET() {
   try {
     const [rows] = await db.query(`
@@ -13,15 +16,16 @@ export async function GET() {
       ORDER BY invoices.id DESC
     `);
 
-    return Response.json(rows);
-
+    return NextResponse.json(rows);
   } catch (err) {
-    console.error(err);
-    return Response.json({ error: err.message }, { status: 500 });
+    console.error("GET Invoices Error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
-// ✅ CREATE INVOICE WITH DUPLICATE PROTECTION
+// ==============================
+// ✅ CREATE INVOICE (GST / Non-GST, Printing Ticket & Ledger Integration)
+// ==============================
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -47,6 +51,7 @@ export async function POST(req) {
       notes = "",
       salesperson_id,
       assigned_to,
+      eway_bill_no,
     } = body;
 
     const invoice_id = invoice_no || `INV-${Date.now()}`;
@@ -58,8 +63,8 @@ export async function POST(req) {
     );
 
     if (existingInvoice.length > 0) {
-      return Response.json(
-        { error: `Invoice number ${invoice_id} already exists in the system. Please generate a new invoice number or create a new tab.` },
+      return NextResponse.json(
+        { error: `Invoice number ${invoice_id} already exists in the system.` },
         { status: 400 }
       );
     }
@@ -92,24 +97,28 @@ export async function POST(req) {
 
     const discountAmount = Number(discount) || 0;
     const netAmountBeforeGst = subtotal - discountAmount;
-    const taxAmount = (Number(cgst) + Number(sgst)) > 0 
+    
+    // Non-GST invoices force 0 tax
+    const taxAmount = invoice_type === "Non-GST Invoice" ? 0 : ((Number(cgst) + Number(sgst)) > 0 
       ? Number(cgst) + Number(sgst) 
-      : netAmountBeforeGst * (Number(gst) / 100);
+      : netAmountBeforeGst * (Number(gst) / 100));
 
     const finalAmount = netAmountBeforeGst + taxAmount + Number(freight || 0) + Number(otherCharges || 0) - Number(deposit || 0) + Number(roundOff || 0);
 
     // ✅ INSERT INVOICE
     await db.query(
       `INSERT INTO invoices 
-      (invoice_id, customer_id, customer_name, invoice_date, due_date, payment_status, subtotal, discount, tax, deposit, total_amount, notes, salesperson_id, assigned_to)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (invoice_id, invoice_type, customer_id, customer_name, invoice_date, due_date, payment_status, payment_method, subtotal, discount, tax, deposit, total_amount, notes, salesperson_id, assigned_to, eway_bill_no)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         invoice_id,
+        invoice_type,
         customer_id || null,
         resolved_customer_name,
         invoice_date || null,
         due_date || null,
         payment_status,
+        payment_method,
         subtotal,
         discountAmount,
         taxAmount,
@@ -118,6 +127,7 @@ export async function POST(req) {
         notes,
         salesperson_id || null,
         assigned_to || null,
+        eway_bill_no || null,
       ]
     );
 
@@ -140,40 +150,39 @@ export async function POST(req) {
       );
     }
 
-    // 🔥 CREATE PRINTING JOB IF ASSIGNED
+    // 🔥 CREATE AUTOMATIC PRINTING TICKET ON PRINTING BOARD
+    let employeeName = null;
     if (assigned_to) {
-      let employeeName = null;
       const [empRows] = await db.query(
         "SELECT name FROM employees WHERE id = ?",
         [assigned_to]
       );
-
       if (empRows.length > 0) {
         employeeName = empRows[0].name;
       }
-
-      const firstItem = items[0]?.product || "Custom Job";
-      const jobTitle = `${firstItem} Print`;
-
-      await db.query(
-        `INSERT INTO printing_jobs
-        (job_title, customer_name, order_reference, assigned_employee, priority_level, start_date, deadline, job_status, job_description)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          jobTitle,
-          resolved_customer_name,
-          invoice_id,
-          employeeName,
-          "Medium Priority",
-          invoice_date || null,
-          due_date || null,
-          "Pending",
-          notes || `Print job for ${resolved_customer_name}`,
-        ]
-      );
     }
 
-    return Response.json({
+    const firstItem = items[0]?.product || "Custom Order Item";
+    const jobTitle = `${firstItem} (${items.length} items)`;
+
+    await db.query(
+      `INSERT INTO printing_jobs
+      (job_title, customer_name, order_reference, assigned_employee, priority_level, start_date, deadline, job_status, job_description)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        jobTitle,
+        resolved_customer_name,
+        invoice_id,
+        employeeName,
+        "Medium Priority",
+        invoice_date || null,
+        due_date || null,
+        "Pending",
+        notes || `Automated ticket created from invoice ${invoice_id}`,
+      ]
+    );
+
+    return NextResponse.json({
       success: true,
       invoice_id,
       subtotal,
@@ -181,18 +190,21 @@ export async function POST(req) {
     });
 
   } catch (err) {
-    console.error(err);
-    return Response.json({ error: err.message }, { status: 500 });
+    console.error("POST Invoice Error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
+// ==============================
 // ✅ UPDATE INVOICE
+// ==============================
 export async function PUT(req) {
   try {
     const body = await req.json();
 
     const {
       invoice_id,
+      invoice_type = "GST Invoice",
       items = [],
       discount = 0,
       gst = 0,
@@ -203,9 +215,11 @@ export async function PUT(req) {
       deposit = 0,
       roundOff = 0,
       payment_status,
+      payment_method,
       notes = "",
       salesperson_id,
       assigned_to,
+      eway_bill_no,
     } = body;
 
     let subtotal = 0;
@@ -217,15 +231,18 @@ export async function PUT(req) {
 
     const discountAmount = Number(discount) || 0;
     const netAmountBeforeGst = subtotal - discountAmount;
-    const taxAmount = (Number(cgst) + Number(sgst)) > 0 
+    
+    const taxAmount = invoice_type === "Non-GST Invoice" ? 0 : ((Number(cgst) + Number(sgst)) > 0 
       ? Number(cgst) + Number(sgst) 
-      : netAmountBeforeGst * (Number(gst) / 100);
+      : netAmountBeforeGst * (Number(gst) / 100));
 
     const finalAmount = netAmountBeforeGst + taxAmount + Number(freight || 0) + Number(otherCharges || 0) - Number(deposit || 0) + Number(roundOff || 0);
 
     await db.query(
       `UPDATE invoices SET
+        invoice_type = ?,
         payment_status = ?,
+        payment_method = ?,
         subtotal = ?,
         discount = ?,
         tax = ?,
@@ -233,10 +250,13 @@ export async function PUT(req) {
         total_amount = ?,
         notes = ?,
         salesperson_id = ?,
-        assigned_to = ?
+        assigned_to = ?,
+        eway_bill_no = ?
       WHERE invoice_id = ?`,
       [
+        invoice_type,
         payment_status || "Pending",
+        payment_method || "Cash",
         subtotal,
         discountAmount,
         taxAmount,
@@ -245,6 +265,7 @@ export async function PUT(req) {
         notes,
         salesperson_id || null,
         assigned_to || null,
+        eway_bill_no || null,
         invoice_id,
       ]
     );
@@ -269,13 +290,13 @@ export async function PUT(req) {
       );
     }
 
-    return Response.json({
+    return NextResponse.json({
       success: true,
       total: finalAmount,
     });
 
   } catch (err) {
-    console.error(err);
-    return Response.json({ error: err.message }, { status: 500 });
+    console.error("PUT Invoice Error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
