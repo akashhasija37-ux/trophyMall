@@ -47,7 +47,22 @@ type InvoiceTab = {
   paymentType: string;
   orderType: string;
   deliveryMethod: string;
-  paymentMethod: string;
+  
+  // Split payment fields
+  paymentMethods: {
+    Cash: boolean;
+    Bank: boolean;
+    UPI: boolean;
+    Cheque: boolean;
+  };
+  splitAmounts: {
+    Cash: number;
+    Bank: number;
+    UPI: number;
+    Cheque: number;
+  };
+  deposit: number; // Partial payment received
+
   salesperson_id?: number;
   assigned_to?: number;
   notes: string;
@@ -57,7 +72,6 @@ type InvoiceTab = {
   gst: number;
   freight: number;
   otherCharges: number;
-  deposit: number;
   roundOff: number;
 };
 
@@ -77,7 +91,11 @@ const createNewInvoiceTab = (index: number): InvoiceTab => ({
   paymentType: "Final Payment",
   orderType: "Spot Delivery",
   deliveryMethod: "Self Pickup",
-  paymentMethod: "Cash",
+  
+  paymentMethods: { Cash: true, Bank: false, UPI: false, Cheque: false },
+  splitAmounts: { Cash: 0, Bank: 0, UPI: 0, Cheque: 0 },
+  deposit: 0,
+
   salesperson_id: undefined,
   assigned_to: undefined,
   notes: "",
@@ -98,7 +116,6 @@ const createNewInvoiceTab = (index: number): InvoiceTab => ({
   gst: 5,
   freight: 0,
   otherCharges: 0,
-  deposit: 0,
   roundOff: 0,
 });
 
@@ -417,8 +434,26 @@ export default function SalesVoucherPage({ refresh }: any) {
   const calculatedRoundOff = currentInvoice.roundOff !== 0 ? currentInvoice.roundOff : Math.round(grandTotal) - grandTotal;
   const finalPayable = grandTotal + calculatedRoundOff;
 
+  // Toggle multiple payment methods (e.g. Cash + Bank)
+  const togglePaymentMethod = (method: "Cash" | "Bank" | "UPI" | "Cheque") => {
+    const currentMethods = currentInvoice.paymentMethods;
+    const updatedMethods = { ...currentMethods, [method]: !currentMethods[method] };
+    updateInvoiceTab({ paymentMethods: updatedMethods });
+  };
+
+  const updateSplitAmount = (method: "Cash" | "Bank" | "UPI" | "Cheque", val: number) => {
+    const updatedSplits = { ...currentInvoice.splitAmounts, [method]: val };
+    updateInvoiceTab({ splitAmounts: updatedSplits });
+  };
+
   const saveCurrentInvoice = async () => {
     try {
+      // Determine primary payment method representation
+      const activeMethods = Object.keys(currentInvoice.paymentMethods).filter(
+        (m) => currentInvoice.paymentMethods[m as keyof typeof currentInvoice.paymentMethods]
+      );
+      const combinedMethodString = activeMethods.length > 0 ? activeMethods.join(" + ") : "Cash";
+
       const payload = {
         invoice_no: currentInvoice.invoiceNo,
         invoice_type: invoiceType,
@@ -426,9 +461,11 @@ export default function SalesVoucherPage({ refresh }: any) {
         customer_name: currentInvoice.customerName || "Walk-in Customer",
         invoice_date: currentInvoice.invoiceDate,
         due_date: currentInvoice.dueDate,
-        payment_status: currentInvoice.paymentType === "Credit" ? "Overdue" : "Paid",
-        payment_method: currentInvoice.paymentMethod,
+        payment_status: currentInvoice.paymentType === "Credit" ? "Overdue" : (currentInvoice.deposit > 0 && currentInvoice.deposit < finalPayable ? "Pending" : "Paid"),
+        payment_method: combinedMethodString,
         payment_type: currentInvoice.paymentType,
+        deposit: currentInvoice.deposit,
+        split_amounts: currentInvoice.splitAmounts,
         salesperson_id: currentInvoice.salesperson_id || null,
         assigned_to: currentInvoice.assigned_to || null,
         notes: currentInvoice.notes,
@@ -488,12 +525,6 @@ export default function SalesVoucherPage({ refresh }: any) {
     window.open(`https://wa.me/${currentInvoice.customerMobile}?text=${text}`, "_blank");
   };
 
-  const handleCancel = () => {
-    message.info("Action cancelled / Cleared current tab (Esc)");
-    closeInvoiceTab(activeTab);
-  };
-
-  // ✅ E-WAY BILL JSON EXPORT & REDIRECT TO GOVT PORTAL
   const handleDownloadEwayJson = () => {
     if (!currentInvoice.isSaved) {
       message.error("Please save the invoice first (F5) before generating the E-Way JSON file.");
@@ -751,11 +782,11 @@ export default function SalesVoucherPage({ refresh }: any) {
                   </div>
                 </div>
 
-                {/* SECTION 2: INVOICE META DETAILS */}
+                {/* SECTION 2: INVOICE META DETAILS & SPLIT PAYMENT METHODS */}
                 <div className="bg-[#121212] border border-zinc-800 rounded-lg p-5">
                   <h3 className="text-green-500 font-semibold text-sm mb-4 flex items-center gap-2">
                     <span className="bg-green-900/50 text-green-400 w-5 h-5 rounded-full flex items-center justify-center text-xs">2</span>
-                    Invoice Details, Payment & Delivery Options
+                    Invoice Details, Multi-Payment (Split) & Delivery Options
                   </h3>
 
                   <div className="space-y-4">
@@ -783,32 +814,18 @@ export default function SalesVoucherPage({ refresh }: any) {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4 pt-2">
+                    <div className="grid grid-cols-2 gap-4 pt-2">
                       <div>
                         <label className="text-xs text-gray-400 block mb-1">Payment Type</label>
                         <div className="flex gap-1">
                           {["Advance", "Final", "Credit"].map((type) => (
                             <button
                               key={type}
+                              type="button"
                               onClick={() => updateInvoiceTab({ paymentType: type })}
                               className={`flex-1 text-[11px] py-1.5 rounded border ${currentInvoice.paymentType === type ? "bg-green-700 text-white border-green-600 font-semibold" : "border-zinc-700 text-gray-400"}`}
                             >
                               {type}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="text-xs text-gray-400 block mb-1">Payment Method</label>
-                        <div className="flex gap-1">
-                          {["Cash", "UPI", "Bank", "Cheque"].map((method) => (
-                            <button
-                              key={method}
-                              onClick={() => updateInvoiceTab({ paymentMethod: method })}
-                              className={`flex-1 text-[11px] py-1.5 rounded border ${currentInvoice.paymentMethod === method ? "bg-zinc-700 text-white border-zinc-600 font-semibold" : "border-zinc-700 text-gray-400"}`}
-                            >
-                              {method}
                             </button>
                           ))}
                         </div>
@@ -825,6 +842,74 @@ export default function SalesVoucherPage({ refresh }: any) {
                         </select>
                       </div>
                     </div>
+
+                    {/* SPLIT PAYMENT METHODS (Cash + Bank / UPI / Cheque) */}
+                    <div className="border border-zinc-800 p-3.5 rounded-xl bg-[#16161a] space-y-3">
+                      <label className="text-xs font-semibold text-green-400 block">Select Payment Methods (Multi-select for Split Pay e.g., Cash + Bank):</label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {(["Cash", "Bank", "UPI", "Cheque"] as const).map((method) => {
+                          const isChecked = currentInvoice.paymentMethods[method];
+                          return (
+                            <button
+                              key={method}
+                              type="button"
+                              onClick={() => togglePaymentMethod(method)}
+                              className={`py-2 rounded-lg text-xs font-bold border transition-all ${
+                                isChecked 
+                                  ? "bg-green-700 text-white border-green-600 shadow-md" 
+                                  : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white"
+                              }`}
+                            >
+                              {isChecked ? `✓ ${method}` : method}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Split Amount Inputs if multiple methods selected */}
+                      {Object.keys(currentInvoice.paymentMethods).some(
+                        (m) => currentInvoice.paymentMethods[m as keyof typeof currentInvoice.paymentMethods]
+                      ) && (
+                        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-zinc-800">
+                          {(["Cash", "Bank", "UPI", "Cheque"] as const).map((method) => {
+                            if (!currentInvoice.paymentMethods[method]) return null;
+                            return (
+                              <div key={method} className="flex flex-col gap-1">
+                                <span className="text-[11px] text-zinc-400">{method} Amount (₹)</span>
+                                <input
+                                  type="number"
+                                  placeholder="0.00"
+                                  value={currentInvoice.splitAmounts[method] || ""}
+                                  onChange={(e) => updateSplitAmount(method, Number(e.target.value) || 0)}
+                                  className="bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-xs text-white outline-none"
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Partial Deposit / Advanced Paid tracking */}
+                      <div className="pt-2 border-t border-zinc-800 grid grid-cols-2 gap-3 items-center">
+                        <div>
+                          <label className="text-xs text-zinc-400 block mb-1">Amount Deposited / Paid (₹)</label>
+                          <input
+                            type="number"
+                            value={currentInvoice.deposit || ""}
+                            onChange={(e) => updateInvoiceTab({ deposit: Number(e.target.value) || 0 })}
+                            placeholder="Enter advance/deposit received"
+                            className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-xs text-white outline-none"
+                          />
+                        </div>
+                        <div className="text-right">
+                          <span className="text-zinc-500 text-[11px] block">Balance Due:</span>
+                          <span className="text-red-400 font-bold text-sm">
+                            ₹{Math.max(0, finalPayable - (currentInvoice.deposit || 0)).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
                   </div>
                 </div>
 

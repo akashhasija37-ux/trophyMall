@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "@/app/components/sidebar";
 import Topbar from "@/app/components/topbar";
-import { Plus, Search, Calendar, Download, Eye, Edit, ArrowLeft, Save } from "lucide-react";
+import { Plus, Search, Calendar, Download, Eye, Edit, ArrowLeft, Save, X } from "lucide-react";
 import Link from "next/link";
+import toast from "react-hot-toast";
 
 type BankPaymentRecord = {
   id: string;
@@ -15,40 +16,47 @@ type BankPaymentRecord = {
   status: "Transferred" | "Pending";
 };
 
-const mockRecords: BankPaymentRecord[] = [
-  {
-    id: "1",
-    refNo: "BPY-2026-0021",
-    party: "Raj Metals Pvt Ltd",
-    date: "2026-06-11",
-    amount: 34500,
-    status: "Transferred",
-  },
-  {
-    id: "2",
-    refNo: "BPY-2026-0020",
-    party: "Acrylic World",
-    date: "2026-06-09",
-    amount: 18200,
-    status: "Pending",
-  },
-];
-
 export default function BankPaymentPage() {
+  const [records, setRecords] = useState<BankPaymentRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
   // Form states for New Bank Payment
-  const [voucherNo, setVoucherNo] = useState("BPY-2026-0022");
-  const [paymentDate, setPaymentDate] = useState("");
+  const [voucherNo, setVoucherNo] = useState(`BPY-2026-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
   const [vendorParty, setVendorParty] = useState("");
   const [amount, setAmount] = useState("");
   const [purpose, setPurpose] = useState("Supplier Payment");
   const [bankAccount, setBankAccount] = useState("HDFC Bank");
   const [transactionNo, setTransactionNo] = useState("");
   const [narration, setNarration] = useState("");
-  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchBankPayments();
+  }, []);
+
+  const fetchBankPayments = async () => {
+    try {
+      const res = await fetch("/api/receipts?method=Bank");
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setRecords(
+          data.map((item: any) => ({
+            id: String(item.id),
+            refNo: item.receipt_no || item.refNo,
+            party: item.party_name || item.party,
+            date: item.receipt_date ? item.receipt_date.split("T")[0] : "",
+            amount: Number(item.amount || 0),
+            status: item.status || "Transferred",
+          }))
+        );
+      }
+    } catch (err) {
+      console.error("Failed to fetch bank payments", err);
+    }
+  };
 
   const formatCurrency = (val: number): string => {
     return new Intl.NumberFormat("en-IN", {
@@ -58,7 +66,7 @@ export default function BankPaymentPage() {
     }).format(val);
   };
 
-  const filteredRecords = mockRecords.filter((item) => {
+  const filteredRecords = records.filter((item) => {
     const matchesSearch =
       item.refNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.party.toLowerCase().includes(searchTerm.toLowerCase());
@@ -66,17 +74,45 @@ export default function BankPaymentPage() {
     return matchesSearch && matchesDate;
   });
 
-  const handleSaveBankPayment = (e: React.FormEvent) => {
+  const handleSaveBankPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert("Bank Payment successfully saved!");
-    setIsCreating(false);
-  };
+    if (!vendorParty || !amount) {
+      toast.error("Please fill in Vendor/Party and Amount");
+      return;
+    }
 
-  const toggleInvoiceSelection = (invNo: string) => {
-    if (selectedInvoices.includes(invNo)) {
-      setSelectedInvoices(selectedInvoices.filter((i) => i !== invNo));
-    } else {
-      setSelectedInvoices([...selectedInvoices, invNo]);
+    setLoading(true);
+    try {
+      const payload = {
+        invoice_id: voucherNo,
+        party_name: vendorParty,
+        payment_method: "Bank",
+        amount: Number(amount),
+        receipt_date: paymentDate,
+        status: "Transferred",
+      };
+
+      const res = await fetch("/api/receipts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save bank payment");
+
+      toast.success("Bank Payment saved successfully! ✅");
+      fetchBankPayments();
+      setIsCreating(false);
+      setVendorParty("");
+      setAmount("");
+      setTransactionNo("");
+      setNarration("");
+      setVoucherNo(`BPY-2026-${Math.floor(1000 + Math.random() * 9000)}`);
+    } catch (err: any) {
+      toast.error(err.message || "Server error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -87,10 +123,8 @@ export default function BankPaymentPage() {
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         <Topbar />
 
-        {/* MAIN SCROLLABLE AREA */}
         <div className="flex-1 overflow-y-auto bg-[#0a0a0a] custom-scrollbar">
           
-          {/* TOP BREADCRUMB HEADER */}
           <div className="px-6 py-4 flex justify-between items-start border-b border-zinc-800/60">
             <div>
               <p className="text-xs text-zinc-500 mb-1">
@@ -99,35 +133,26 @@ export default function BankPaymentPage() {
               <h1 className="text-xl font-bold text-white">Bank Payment</h1>
             </div>
             <Link href="/dashboard/create-invoice">
-              <button 
-                //onClick={() => setIsCreating(true)}
-                className="bg-green-700 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium shadow-sm"
-              >
+              <button className="bg-green-700 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium shadow-sm">
                 <Plus size={16} /> New Invoice
               </button>
-           </Link>
+            </Link>
           </div>
 
           <div className="p-6 max-w-[1400px] mx-auto flex flex-col space-y-6">
             
             {isCreating ? (
-              /* NEW BANK PAYMENT FORM VIEW */
               <div className="flex flex-col gap-4">
                 <div className="flex items-center gap-2 text-sm text-zinc-400">
-                  <button 
-                    onClick={() => setIsCreating(false)}
-                    className="hover:text-white flex items-center gap-1 transition-colors"
-                  >
+                  <button onClick={() => setIsCreating(false)} className="hover:text-white flex items-center gap-1 transition-colors">
                     <ArrowLeft size={16} /> Bank Payment
                   </button>
                   <span>›</span>
                   <span className="text-white font-medium">New Bank Payment</span>
                 </div>
 
-                <form onSubmit={handleSaveBankPayment} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  
-                  {/* Left Column: Payment Details */}
-                  <div className="lg:col-span-2 bg-[#121212] border border-zinc-800/80 rounded-xl p-6 shadow-xl flex flex-col gap-5">
+                <form onSubmit={handleSaveBankPayment} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-[#121212] border border-zinc-800/80 rounded-xl p-6 shadow-xl flex flex-col gap-5">
                     <h2 className="text-base font-bold text-white border-b border-zinc-800 pb-3">Payment Details</h2>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -137,37 +162,32 @@ export default function BankPaymentPage() {
                           type="text"
                           value={voucherNo}
                           onChange={(e) => setVoucherNo(e.target.value)}
-                          className="w-full bg-[#1a1a1c] border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 focus:border-zinc-500 outline-none"
+                          className="w-full bg-[#1a1a1c] border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 outline-none"
                           required
                         />
                       </div>
                       <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-medium text-zinc-400">Payment Date *</label>
-                        <div className="relative">
-                          <input
-                            type="date"
-                            value={paymentDate}
-                            onChange={(e) => setPaymentDate(e.target.value)}
-                            className="w-full bg-[#1a1a1c] border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 focus:border-zinc-500 outline-none"
-                            required
-                          />
-                        </div>
+                        <input
+                          type="date"
+                          value={paymentDate}
+                          onChange={(e) => setPaymentDate(e.target.value)}
+                          className="w-full bg-[#1a1a1c] border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 outline-none"
+                          required
+                        />
                       </div>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-medium text-zinc-400">Vendor / Party *</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          placeholder="Search vendor..."
-                          value={vendorParty}
-                          onChange={(e) => setVendorParty(e.target.value)}
-                          className="w-full bg-[#1a1a1c] border border-zinc-700 rounded-lg pl-3 pr-10 py-2.5 text-sm text-zinc-200 focus:border-zinc-500 outline-none"
-                          required
-                        />
-                        <Search size={16} className="absolute right-3 top-3 text-zinc-500" />
-                      </div>
+                      <input
+                        type="text"
+                        placeholder="Search vendor..."
+                        value={vendorParty}
+                        onChange={(e) => setVendorParty(e.target.value)}
+                        className="w-full bg-[#1a1a1c] border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 outline-none"
+                        required
+                      />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -178,7 +198,7 @@ export default function BankPaymentPage() {
                           placeholder="₹ 0.00"
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
-                          className="w-full bg-[#1a1a1c] border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 focus:border-zinc-500 outline-none"
+                          className="w-full bg-[#1a1a1c] border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 outline-none"
                           required
                         />
                       </div>
@@ -187,12 +207,11 @@ export default function BankPaymentPage() {
                         <select
                           value={purpose}
                           onChange={(e) => setPurpose(e.target.value)}
-                          className="w-full bg-[#1a1a1c] border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 focus:border-zinc-500 outline-none cursor-pointer"
+                          className="w-full bg-[#1a1a1c] border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 outline-none cursor-pointer"
                         >
                           <option>Supplier Payment</option>
                           <option>Courier & Freight</option>
                           <option>Office Supplies</option>
-                          <option>Miscellaneous Expense</option>
                         </select>
                       </div>
                     </div>
@@ -203,11 +222,12 @@ export default function BankPaymentPage() {
                         <select
                           value={bankAccount}
                           onChange={(e) => setBankAccount(e.target.value)}
-                          className="w-full bg-[#1a1a1c] border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 focus:border-zinc-500 outline-none cursor-pointer"
+                          className="w-full bg-[#1a1a1c] border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 outline-none cursor-pointer"
                         >
                           <option>HDFC Bank</option>
                           <option>ICICI Bank</option>
                           <option>State Bank of India</option>
+                          <option>Indian Bank</option>
                         </select>
                       </div>
                       <div className="flex flex-col gap-1.5">
@@ -217,197 +237,87 @@ export default function BankPaymentPage() {
                           placeholder="UTR/NEFT/IMPS Ref"
                           value={transactionNo}
                           onChange={(e) => setTransactionNo(e.target.value)}
-                          className="w-full bg-[#1a1a1c] border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 focus:border-zinc-500 outline-none"
+                          className="w-full bg-[#1a1a1c] border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 outline-none"
                         />
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-medium text-zinc-400">Narration / Notes</label>
-                      <textarea
-                        rows={3}
-                        placeholder="Payment details..."
-                        value={narration}
-                        onChange={(e) => setNarration(e.target.value)}
-                        className="w-full bg-[#1a1a1c] border border-zinc-700 rounded-lg p-3 text-sm text-zinc-200 focus:border-zinc-500 outline-none resize-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Right Column: Against Invoices */}
-                  <div className="bg-[#121212] border border-zinc-800/80 rounded-xl p-6 shadow-xl flex flex-col gap-4">
-                    <h2 className="text-base font-bold text-white border-b border-zinc-800 pb-3">Against Invoices</h2>
-                    
-                    <div className="flex flex-col gap-3">
-                      {[
-                        { invNo: "PUR-2026-0041", party: "Raj Metals", due: "Jun 25", amt: "₹34,500" },
-                        { invNo: "PUR-2026-0038", party: "Raj Metals", due: "Jun 15", amt: "₹18,200" },
-                      ].map((inv) => {
-                        const isChecked = selectedInvoices.includes(inv.invNo);
-                        return (
-                          <div
-                            key={inv.invNo}
-                            onClick={() => toggleInvoiceSelection(inv.invNo)}
-                            className={`p-3.5 rounded-lg border flex items-center justify-between cursor-pointer transition-colors ${
-                              isChecked ? "bg-green-950/20 border-green-800/60" : "bg-[#1a1a1c] border-zinc-800 hover:border-zinc-700"
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() => {}}
-                                className="w-4 h-4 rounded border-zinc-700 accent-green-600 cursor-pointer"
-                              />
-                              <div className="flex flex-col">
-                                <span className="text-sm font-semibold text-white">{inv.invNo}</span>
-                                <span className="text-xs text-zinc-400">{inv.party} · Due: {inv.due}</span>
-                              </div>
-                            </div>
-                            <span className="text-sm font-bold text-white">{inv.amt}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="mt-auto pt-6 flex items-center justify-end gap-3 border-t border-zinc-800">
-                      <button
-                        type="button"
-                        onClick={() => setIsCreating(false)}
-                        className="bg-[#1a1a1c] hover:bg-zinc-800 border border-zinc-700 text-zinc-300 text-sm px-5 py-2.5 rounded-lg font-medium transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        className="bg-green-700 hover:bg-green-600 text-white text-sm px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-md"
-                      >
-                        <Save size={16} /> Save Bank Payment
+                    <div className="mt-4 flex justify-end gap-3 border-t border-zinc-800 pt-4">
+                      <button type="button" onClick={() => setIsCreating(false)} className="bg-zinc-800 text-zinc-300 text-sm px-5 py-2.5 rounded-lg">Cancel</button>
+                      <button type="submit" disabled={loading} className="bg-green-700 hover:bg-green-600 text-white text-sm px-5 py-2.5 rounded-lg flex items-center gap-2">
+                        <Save size={16} /> {loading ? "Saving..." : "Save Bank Payment"}
                       </button>
                     </div>
                   </div>
-
                 </form>
               </div>
             ) : (
-              /* DEFAULT TABLE VIEW */
               <div className="bg-[#121212] border border-zinc-800/80 rounded-xl p-6 shadow-xl flex flex-col gap-6">
-                
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                   <div>
-                    <h2 className="text-lg font-bold text-white leading-none mb-2">Bank Payment</h2>
+                    <h2 className="text-lg font-bold text-white leading-none mb-2">Bank Payment Records</h2>
                     <p className="text-zinc-400 text-sm">{filteredRecords.length} records</p>
                   </div>
                   
                   <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
-                    <div className="relative flex-1 md:w-64">
-                      <input 
-                        type="text"
-                        placeholder="Search..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-[#1a1a1c] border border-zinc-700 focus:border-zinc-500 rounded-lg pl-9 pr-3 py-2 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-500"
-                      />
-                      <Search size={16} className="absolute left-3 top-2.5 text-zinc-500" />
-                    </div>
-
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={dateFilter}
-                        onChange={(e) => setDateFilter(e.target.value)}
-                        className="bg-[#1a1a1c] border border-zinc-700 focus:border-zinc-500 text-zinc-300 text-sm rounded-lg px-3 py-2 outline-none transition-colors"
-                      />
-                    </div>
-
-                    <button className="bg-[#1a1a1c] hover:bg-zinc-800 border border-zinc-700 text-zinc-300 text-sm px-4 py-2 rounded-lg flex items-center gap-2 transition-colors font-medium">
-                      <Download size={16} /> Export
-                    </button>
-
-                    <button 
-                      onClick={() => setIsCreating(true)}
-                      className="bg-green-700 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-lg flex items-center gap-2 transition-colors font-medium"
-                    >
-                      <Plus size={16} /> New
+                    <input 
+                      type="text"
+                      placeholder="Search..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="bg-[#1a1a1c] border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 outline-none"
+                    />
+                    <input
+                      type="date"
+                      value={dateFilter}
+                      onChange={(e) => setDateFilter(e.target.value)}
+                      className="bg-[#1a1a1c] border border-zinc-700 text-zinc-300 text-sm rounded-lg px-3 py-2 outline-none"
+                    />
+                    <button onClick={() => setIsCreating(true)} className="bg-green-700 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-lg flex items-center gap-2">
+                      <Plus size={16} /> New Payment
                     </button>
                   </div>
                 </div>
 
-                {/* DATA TABLE */}
                 <div className="border border-zinc-800 rounded-lg overflow-hidden bg-[#0f0f0f]">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-[#18181a] text-zinc-400 text-xs uppercase tracking-wider border-b border-zinc-800">
-                          <th className="py-3.5 px-6 font-semibold">Ref No</th>
-                          <th className="py-3.5 px-6 font-semibold">Party</th>
-                          <th className="py-3.5 px-6 font-semibold">Date</th>
-                          <th className="py-3.5 px-6 font-semibold">Amount</th>
-                          <th className="py-3.5 px-6 font-semibold">Status</th>
-                          <th className="py-3.5 px-6 font-semibold text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-800/60 text-sm">
-                        {filteredRecords.length > 0 ? (
-                          filteredRecords.map((record) => (
-                            <tr key={record.id} className="hover:bg-[#121212] transition-colors">
-                              <td className="py-4 px-6 font-semibold text-white">{record.refNo}</td>
-                              <td className="py-4 px-6 text-zinc-300">{record.party}</td>
-                              <td className="py-4 px-6 text-zinc-400">{record.date}</td>
-                              <td className="py-4 px-6 font-bold text-white">{formatCurrency(record.amount)}</td>
-                              <td className="py-4 px-6">
-                                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                                  record.status === "Transferred" 
-                                    ? "bg-blue-950/60 text-blue-400 border border-blue-800/40" 
-                                    : "bg-yellow-950/60 text-yellow-400 border border-yellow-800/40"
-                                }`}>
-                                  {record.status}
-                                </span>
-                              </td>
-                              <td className="py-4 px-6 text-right">
-                                <div className="flex items-center justify-end gap-3 text-zinc-400">
-                                  <button title="View Details" className="hover:text-white transition-colors">
-                                    <Eye size={16} />
-                                  </button>
-                                  <button title="Edit Record" className="hover:text-white transition-colors">
-                                    <Edit size={16} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={6} className="py-12 text-center text-zinc-500">
-                              No bank payment records found matching your filters.
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-[#18181a] text-zinc-400 text-xs uppercase tracking-wider border-b border-zinc-800">
+                        <th className="py-3.5 px-6 font-semibold">Ref No</th>
+                        <th className="py-3.5 px-6 font-semibold">Party</th>
+                        <th className="py-3.5 px-6 font-semibold">Date</th>
+                        <th className="py-3.5 px-6 font-semibold">Amount</th>
+                        <th className="py-3.5 px-6 font-semibold">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/60 text-sm">
+                      {filteredRecords.length > 0 ? (
+                        filteredRecords.map((record) => (
+                          <tr key={record.id} className="hover:bg-[#121212]">
+                            <td className="py-4 px-6 font-semibold text-white">{record.refNo}</td>
+                            <td className="py-4 px-6 text-zinc-300">{record.party}</td>
+                            <td className="py-4 px-6 text-zinc-400">{record.date}</td>
+                            <td className="py-4 px-6 font-bold text-white">{formatCurrency(record.amount)}</td>
+                            <td className="py-4 px-6">
+                              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-950/60 text-blue-400 border border-blue-800/40">
+                                {record.status}
+                              </span>
                             </td>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} className="py-12 text-center text-zinc-500">
+                            No bank payment records found from database.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-
               </div>
             )}
 
-          </div>
-        </div>
-
-        {/* BOTTOM STATUS BAR */}
-        <div className="h-8 bg-[#0a0a0a] border-t border-zinc-900 flex justify-between items-center px-4 text-[11px] text-zinc-400 shrink-0">
-          <div className="flex items-center gap-6">
-            <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-zinc-500"></div> Open Invoices: 0</span>
-            <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-yellow-500"></div> Draft Invoices: 0</span>
-            <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div> Pending Printing: 5</span>
-            <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> Pending Dispatch: 8</span>
-            <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> Outstanding Collection: <span className="text-red-400 font-medium">₹2,10,000</span></span>
-          </div>
-          <div className="flex items-center gap-4 opacity-75">
-            <span className="flex gap-1"><kbd className="bg-zinc-800 px-1 rounded border border-zinc-700 text-[10px]">F5</kbd> Save</span>
-            <span className="flex gap-1"><kbd className="bg-zinc-800 px-1 rounded border border-zinc-700 text-[10px]">F6</kbd> Print</span>
-            <span className="flex gap-1"><kbd className="bg-zinc-800 px-1 rounded border border-zinc-700 text-[10px]">Ctrl+W</kbd> WhatsApp</span>
-            <span className="flex gap-1"><kbd className="bg-zinc-800 px-1 rounded border border-zinc-700 text-[10px]">Esc</kbd> Cancel</span>
           </div>
         </div>
       </div>

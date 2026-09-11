@@ -24,7 +24,7 @@ export async function GET() {
 }
 
 // ==============================
-// ✅ CREATE INVOICE (GST / Non-GST, Printing Ticket & Ledger Integration)
+// ✅ CREATE INVOICE (GST / Non-GST, Split Cash & Bank Amounts, Printing Ticket & Receipts)
 // ==============================
 export async function POST(req) {
   try {
@@ -37,8 +37,10 @@ export async function POST(req) {
       customer_name,
       invoice_date,
       due_date,
-      payment_status = "Pending",
+      payment_status = "Paid",
       payment_method = "Cash",
+      split_amounts = {}, // e.g. { Cash: 500, UPI: 500, Bank: 0, Cheque: 0 }
+      deposit = 0,
       items = [],
       discount = 0,
       gst = 0,
@@ -46,7 +48,6 @@ export async function POST(req) {
       sgst = 0,
       freight = 0,
       otherCharges = 0,
-      deposit = 0,
       roundOff = 0,
       notes = "",
       salesperson_id,
@@ -103,13 +104,18 @@ export async function POST(req) {
       ? Number(cgst) + Number(sgst) 
       : netAmountBeforeGst * (Number(gst) / 100));
 
-    const finalAmount = netAmountBeforeGst + taxAmount + Number(freight || 0) + Number(otherCharges || 0) - Number(deposit || 0) + Number(roundOff || 0);
+    const finalAmount = netAmountBeforeGst + taxAmount + Number(freight || 0) + Number(otherCharges || 0) + Number(roundOff || 0);
+    const depositAmount = Number(deposit) || 0;
 
-    // ✅ INSERT INVOICE
+    // 🔥 MAP CASH & COMBINE BANK, UPI, CHEQUE INTO BANK AMOUNT
+    const cashAmt = Number(split_amounts?.Cash || 0);
+    const bankAmt = Number(split_amounts?.Bank || 0) + Number(split_amounts?.UPI || 0) + Number(split_amounts?.Cheque || 0);
+
+    // ✅ INSERT INVOICE WITH CASH & BANK SPLIT AMOUNTS
     await db.query(
       `INSERT INTO invoices 
-      (invoice_id, invoice_type, customer_id, customer_name, invoice_date, due_date, payment_status, payment_method, subtotal, discount, tax, deposit, total_amount, notes, salesperson_id, assigned_to, eway_bill_no)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (invoice_id, invoice_type, customer_id, customer_name, invoice_date, due_date, payment_status, payment_method, cash_amount, bank_amount, subtotal, discount, tax, deposit, total_amount, notes, salesperson_id, assigned_to, eway_bill_no)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         invoice_id,
         invoice_type,
@@ -119,10 +125,12 @@ export async function POST(req) {
         due_date || null,
         payment_status,
         payment_method,
+        cashAmt,
+        bankAmt,
         subtotal,
         discountAmount,
         taxAmount,
-        Number(deposit) || 0,
+        depositAmount,
         finalAmount,
         notes,
         salesperson_id || null,
@@ -146,6 +154,59 @@ export async function POST(req) {
           qty,
           price,
           item.total || (qty * price),
+        ]
+      );
+    }
+
+    // 🔥 GENERATE SEPARATE RECEIPTS (UPI and Cheque map to 'Bank' category for receipt ledger)
+    let splitProcessed = false;
+    const splitsToProcess = {
+      Cash: cashAmt,
+      Bank: Number(split_amounts?.Bank || 0),
+      UPI: Number(split_amounts?.UPI || 0),
+      Cheque: Number(split_amounts?.Cheque || 0),
+    };
+
+    for (const [method, amt] of Object.entries(splitsToProcess)) {
+      const numericAmt = Number(amt) || 0;
+      if (numericAmt > 0) {
+        splitProcessed = true;
+        const receiptNo = `RCP-${Math.floor(100000 + Math.random() * 900000)}`;
+        const receiptMethod = method === "UPI" || method === "Cheque" ? "Bank" : method;
+
+        await db.query(
+          `INSERT INTO receipts 
+          (receipt_no, invoice_id, party_name, payment_method, amount, receipt_date, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            receiptNo,
+            invoice_id,
+            resolved_customer_name,
+            receiptMethod,
+            numericAmt,
+            invoice_date || new Date(),
+            receiptMethod === "Cash" ? "Pending" : "Transferred",
+          ]
+        );
+      }
+    }
+
+    // Fallback if no split amounts object was passed
+    if (!splitProcessed && depositAmount > 0) {
+      const receiptNo = `RCP-${Math.floor(100000 + Math.random() * 900000)}`;
+      const fallbackMethod = payment_method.includes("Bank") || payment_method.includes("UPI") ? "Bank" : "Cash";
+      await db.query(
+        `INSERT INTO receipts 
+        (receipt_no, invoice_id, party_name, payment_method, amount, receipt_date, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          receiptNo,
+          invoice_id,
+          resolved_customer_name,
+          fallbackMethod,
+          depositAmount,
+          invoice_date || new Date(),
+          fallbackMethod === "Bank" ? "Transferred" : "Pending",
         ]
       );
     }
@@ -216,6 +277,8 @@ export async function PUT(req) {
       roundOff = 0,
       payment_status,
       payment_method,
+      cash_amount = 0,
+      bank_amount = 0,
       notes = "",
       salesperson_id,
       assigned_to,
@@ -236,13 +299,15 @@ export async function PUT(req) {
       ? Number(cgst) + Number(sgst) 
       : netAmountBeforeGst * (Number(gst) / 100));
 
-    const finalAmount = netAmountBeforeGst + taxAmount + Number(freight || 0) + Number(otherCharges || 0) - Number(deposit || 0) + Number(roundOff || 0);
+    const finalAmount = netAmountBeforeGst + taxAmount + Number(freight || 0) + Number(otherCharges || 0) + Number(roundOff || 0);
 
     await db.query(
       `UPDATE invoices SET
         invoice_type = ?,
         payment_status = ?,
         payment_method = ?,
+        cash_amount = ?,
+        bank_amount = ?,
         subtotal = ?,
         discount = ?,
         tax = ?,
@@ -255,8 +320,10 @@ export async function PUT(req) {
       WHERE invoice_id = ?`,
       [
         invoice_type,
-        payment_status || "Pending",
+        payment_status || "Paid",
         payment_method || "Cash",
+        Number(cash_amount) || 0,
+        Number(bank_amount) || 0,
         subtotal,
         discountAmount,
         taxAmount,
