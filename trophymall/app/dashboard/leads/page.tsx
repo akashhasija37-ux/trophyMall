@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { TrendingUp, Filter, Plus, Edit, Download, Upload, Trash2, ArrowRightCircle } from "lucide-react";
 import toast from "react-hot-toast";
+import * as XLSX from "xlsx";
 
 import Sidebar from "@/app/components/sidebar";
 import Topbar from "@/app/components/topbar";
@@ -54,7 +55,6 @@ export default function LeadsTracking() {
   const handleConvertToCustomer = async (lead: Lead) => {
     const toastId = toast.loading("Converting lead to customer...");
     try {
-      // 1. Add to customers database API
       const custRes = await fetch("/api/customers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -68,7 +68,6 @@ export default function LeadsTracking() {
 
       if (!custRes.ok) throw new Error("Failed to create customer record");
 
-      // 2. Update lead status to "Converted"
       const updateRes = await fetch(`/api/leads/${lead.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -85,59 +84,65 @@ export default function LeadsTracking() {
     }
   };
 
-  // ✅ EXCEL DOWNLOAD (CSV export)
+  // ✅ EXCEL DOWNLOAD EXPORT
   const handleDownloadExcel = () => {
     if (leads.length === 0) {
       toast.error("No leads available to export!");
       return;
     }
-    const headers = ["Name,Contact,Email,Company,Source,Status,Product,Assigned\n"];
-    const rows = leads.map(l => 
-      `"${l.lead_name || ""}","${l.contact_number || ""}","${l.email || ""}","${l.company_name || ""}","${l.lead_source || ""}","${l.lead_status || ""}","${l.interested_product || ""}","${l.assigned_employee || ""}"`
-    );
-    const blob = new Blob([...headers, ...rows], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `leads_export_${dayjs().format("YYYY-MM-DD")}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("Leads downloaded successfully!");
+    const exportData = leads.map(l => ({
+      "Contact Name": l.lead_name || "",
+      "Phone": l.contact_number || "",
+      "Email": l.email || "",
+      "Company": l.company_name || "",
+      "Source": l.lead_source || "",
+      "Status": l.lead_status || "",
+      "Product": l.interested_product || "",
+      "Assigned": l.assigned_employee || "",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
+    XLSX.writeFile(workbook, `leads_export_${dayjs().format("YYYY-MM-DD")}.xlsx`);
+    toast.success("Excel sheet downloaded successfully!");
   };
 
-  // ✅ EXCEL / CSV UPLOAD & SAVE TO DATABASE
+  // ✅ ROBUST EXCEL / CSV UPLOAD & SAVE TO DATABASE USING SHEETJS
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const toastId = toast.loading("Processing and uploading leads file...");
-    
+    const toastId = toast.loading("Processing and uploading spreadsheet...");
+
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
-        const text = event.target?.result as string;
-        const lines = text.split("\n");
-        const rows = lines.slice(1); // skip header row
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        // Convert sheet to JSON array of objects
+        const rows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
         let importedCount = 0;
 
         for (const row of rows) {
-          if (!row.trim()) continue;
-          
-          // Basic CSV regex parser handling quotes and commas
-          const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(val => val.replace(/^"|"$/g, "").trim());
-          
-          if (cols.length >= 2 && cols[0]) {
+          // Flexible key lookup matching your Excel columns ("Contact Name", "Phone", etc.)
+          const leadName = row["Contact Name"] || row["Lead Name"] || row["name"] || row["lead_name"];
+          const contactNum = row["Phone"] || row["Contact Number"] || row["contact"] || row["phone"] || row["contact_number"];
+
+          if (leadName && contactNum) {
             const leadPayload = {
-              lead_name: cols[0] || "Unknown Lead",
-              contact_number: cols[1] || "",
-              email: cols[2] || "",
-              company_name: cols[3] || "",
-              lead_source: cols[4] || "Website",
-              lead_status: cols[5] || "Cold",
-              interested_product: cols[6] || "",
-              assigned_employee: cols[7] || "",
+              lead_name: String(leadName).trim(),
+              contact_number: String(contactNum).trim(),
+              email: String(row["Email"] || row["email"] || "").trim(),
+              company_name: String(row["Company"] || row["Company Name"] || row["company"] || row["company_name"] || "").trim(),
+              lead_source: String(row["Source"] || row["lead_source"] || "Website").trim(),
+              lead_status: String(row["Status"] || row["lead_status"] || "Cold").trim(),
+              interested_product: String(row["Product"] || row["interested_product"] || "").trim(),
+              assigned_employee: String(row["Assigned"] || row["assigned_employee"] || "").trim(),
             };
 
             const res = await fetch("/api/leads", {
@@ -162,7 +167,7 @@ export default function LeadsTracking() {
       }
     };
 
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   };
 
   // ✅ FILTER + SEARCH
@@ -201,12 +206,11 @@ export default function LeadsTracking() {
             </div>
 
             <div className="flex gap-3">
-              {/* Hidden file input for Excel/CSV upload */}
               <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileUpload}
-                accept=".csv, .txt, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                accept=".xlsx, .xls, .csv"
                 className="hidden"
               />
 
