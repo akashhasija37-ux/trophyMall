@@ -120,18 +120,35 @@ export default function LeadsTracking() {
       try {
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: "array" });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
         
-        // Convert sheet to JSON array of objects
-        const rows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+        let worksheet = null;
+        for (const sheetName of workbook.SheetNames) {
+          const sheet = workbook.Sheets[sheetName];
+          const jsonSheet = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+          if (jsonSheet.length > 0) {
+            worksheet = sheet;
+            break;
+          }
+        }
+
+        if (!worksheet) {
+          throw new Error("No data found in any sheet of the uploaded file.");
+        }
+        
+        const rawRows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+        const rows = rawRows.map(row => {
+          const cleanRow: any = {};
+          Object.keys(row).forEach(key => {
+            cleanRow[key.trim()] = row[key];
+          });
+          return cleanRow;
+        });
 
         let importedCount = 0;
 
         for (const row of rows) {
-          // Flexible key lookup matching your Excel columns ("Contact Name", "Phone", etc.)
-          const leadName = row["Contact Name"] || row["Lead Name"] || row["name"] || row["lead_name"];
-          const contactNum = row["Phone"] || row["Contact Number"] || row["contact"] || row["phone"] || row["contact_number"];
+          const leadName = row["Contact Name"] || row["Lead Name"] || row["Name"] || row["name"] || row["lead_name"];
+          const contactNum = row["Phone"] || row["Contact Number"] || row["Contact"] || row["phone"] || row["contact_number"];
 
           if (leadName && contactNum) {
             const leadPayload = {
@@ -159,9 +176,9 @@ export default function LeadsTracking() {
 
         toast.success(`Successfully uploaded and saved ${importedCount} leads! ✅`, { id: toastId });
         fetchLeads();
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
-        toast.error("Failed to parse or save excel sheet ❌", { id: toastId });
+        toast.error(err.message || "Failed to parse or save excel sheet ❌", { id: toastId });
       } finally {
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
@@ -187,6 +204,20 @@ export default function LeadsTracking() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
+
+  // ✅ PAGINATION WINDOW (Show 5 page numbers at a time)
+  const maxVisiblePages = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+  if (endPage - startPage + 1 < maxVisiblePages) {
+    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+  }
+
+  const pageNumbers = [];
+  for (let i = startPage; i <= endPage; i++) {
+    pageNumbers.push(i);
+  }
 
   return (
     <div className="flex bg-black text-white min-h-screen">
@@ -356,34 +387,58 @@ export default function LeadsTracking() {
             </table>
           </div>
 
-          {/* PAGINATION */}
+          {/* PAGINATION (5 pages at a time window) */}
           <div className="flex justify-center items-center gap-2 mt-6">
             <button
               disabled={currentPage === 1}
               onClick={() => setCurrentPage((p) => p - 1)}
-              className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-md text-sm disabled:opacity-40"
+              className="px-3.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-md text-sm disabled:opacity-40 transition"
             >
               Prev
             </button>
 
-            {Array.from({ length: totalPages }, (_, i) => (
+            {startPage > 1 && (
+              <>
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  className="px-3.5 py-1.5 rounded-md text-sm bg-zinc-800 hover:bg-zinc-700 text-gray-300 transition"
+                >
+                  1
+                </button>
+                {startPage > 2 && <span className="text-gray-500 px-1">...</span>}
+              </>
+            )}
+
+            {pageNumbers.map((num) => (
               <button
-                key={i}
-                onClick={() => setCurrentPage(i + 1)}
-                className={`px-3 py-1.5 rounded-md text-sm transition ${
-                  currentPage === i + 1
-                    ? "bg-green-600 text-white"
+                key={num}
+                onClick={() => setCurrentPage(num)}
+                className={`px-3.5 py-1.5 rounded-md text-sm transition ${
+                  currentPage === num
+                    ? "bg-green-600 text-white font-semibold"
                     : "bg-zinc-800 hover:bg-zinc-700 text-gray-300"
                 }`}
               >
-                {i + 1}
+                {num}
               </button>
             ))}
+
+            {endPage < totalPages && (
+              <>
+                {endPage < totalPages - 1 && <span className="text-gray-500 px-1">...</span>}
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  className="px-3.5 py-1.5 rounded-md text-sm bg-zinc-800 hover:bg-zinc-700 text-gray-300 transition"
+                >
+                  {totalPages}
+                </button>
+              </>
+            )}
 
             <button
               disabled={currentPage === totalPages || totalPages === 0}
               onClick={() => setCurrentPage((p) => p + 1)}
-              className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-md text-sm disabled:opacity-40"
+              className="px-3.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-md text-sm disabled:opacity-40 transition"
             >
               Next
             </button>
