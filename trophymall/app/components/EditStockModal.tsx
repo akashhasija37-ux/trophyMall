@@ -32,6 +32,10 @@ export default function EditStockModal({
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // ✅ NEW IMAGE STATES
+  const [featuredImage, setFeaturedImage] = useState<File | null>(null);
+  const [galleryImages, setGalleryImages] = useState<FileList | null>(null);
+
   useEffect(() => {
     if (product) {
       setSellingPrice(product.selling_price || 0);
@@ -56,16 +60,32 @@ export default function EditStockModal({
     setLoading(true);
 
     try {
-      await axios.put("/api/inventory", {
-        id: product.id,
-        selling_price: Number(sellingPrice),
-        discount: Number(discount),
-        change,
-        type,
-        note,
+      // Use FormData to support image uploads along with text fields
+      const formData = new FormData();
+      formData.append("id", String(product.id));
+      formData.append("selling_price", String(sellingPrice));
+      formData.append("discount", String(discount));
+      formData.append("change", String(change));
+      formData.append("type", type);
+      formData.append("note", note);
+
+      if (featuredImage) {
+        formData.append("featured_image", featuredImage);
+      }
+
+      if (galleryImages) {
+        for (let i = 0; i < galleryImages.length; i++) {
+          formData.append("gallery_images", galleryImages[i]);
+        }
+      }
+
+      await axios.put("/api/inventory", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
 
-      toast.success("Product updated successfully ✅");
+      toast.success("Product and images updated successfully ✅");
 
       onSuccess(); 
       onClose();   
@@ -78,8 +98,8 @@ export default function EditStockModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-      <div className="w-full sm:w-[520px] bg-[#121212] border border-zinc-800 text-gray-200 rounded-2xl p-6 shadow-2xl animate-slideUp">
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="w-full sm:w-[560px] bg-[#121212] border border-zinc-800 text-gray-200 rounded-2xl p-6 shadow-2xl animate-slideUp my-8">
 
         {/* Header */}
         <div className="flex justify-between items-center mb-5 border-b border-zinc-800 pb-3">
@@ -133,6 +153,30 @@ export default function EditStockModal({
               className="w-full bg-[#1a1a1c] border border-zinc-700 focus:border-green-500 rounded-xl p-2.5 text-xs text-white outline-none"
               value={discount}
               onChange={(e) => setDiscount(Number(e.target.value) || 0)}
+            />
+          </div>
+        </div>
+
+        {/* ✅ IMAGE UPLOAD SECTION */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 border-t border-zinc-800 pt-4">
+          <div>
+            <label className="text-xs text-zinc-400 block mb-1 font-medium">Featured Image</label>
+            <input
+              type="file"
+              accept="image/*"
+              className="w-full bg-[#1a1a1c] border border-zinc-700 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-800 file:text-zinc-300 hover:file:bg-zinc-700 rounded-xl text-xs text-zinc-400 outline-none cursor-pointer"
+              onChange={(e) => setFeaturedImage(e.target.files?.[0] || null)}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-zinc-400 block mb-1 font-medium">Gallery Images (Multiple)</label>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="w-full bg-[#1a1a1c] border border-zinc-700 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-800 file:text-zinc-300 hover:file:bg-zinc-700 rounded-xl text-xs text-zinc-400 outline-none cursor-pointer"
+              onChange={(e) => setGalleryImages(e.target.files)}
             />
           </div>
         </div>

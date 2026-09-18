@@ -6,6 +6,8 @@ import Topbar from "@/app/components/topbar";
 import AddStockItemModal from "@/app/components/AddStockItemModal";
 import EditStockModal from "@/app/components/EditStockModal";
 import Image from "next/image";
+import toast from "react-hot-toast";
+import * as XLSX from "xlsx";
 import {
   AlertTriangle,
   Package,
@@ -14,6 +16,7 @@ import {
   Archive,
   Plus,
   Download,
+  Upload,
   Eye,
   Pencil,
   Filter,
@@ -24,7 +27,6 @@ import {
   Printer,
   X,
 } from "lucide-react";
-import toast from "react-hot-toast";
 
 type InventoryItem = {
   id: number;
@@ -39,8 +41,8 @@ type InventoryItem = {
   stock_status: string;
   notes?: string;
   product_size?: string;
-  product_height_inches?: string | number;
-
+  height?: string | number;
+  
   featured_image?: string;
   gallery_images?: string;
   discount?: number;
@@ -59,6 +61,7 @@ export default function InventoryPage() {
   // Barcode / QR Modal State
   const [barcodeItem, setBarcodeItem] = useState<InventoryItem | null>(null);
   const barcodeRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [search, setSearch] = useState("");
 
@@ -66,9 +69,13 @@ export default function InventoryPage() {
   const itemsPerPage = 6;
 
   const fetchInventory = async () => {
-    const res = await fetch("/api/inventory");
-    const data = await res.json();
-    setInventory(data);
+    try {
+      const res = await fetch("/api/inventory");
+      const data = await res.json();
+      setInventory(data);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   useEffect(() => {
@@ -137,6 +144,154 @@ export default function InventoryPage() {
     }
   };
 
+// ✅ MULTI-TAB CATEGORY-WISE INVENTORY UPLOAD PARSER
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const toastId = toast.loading("Processing multi-tab product catalog...");
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        
+        let importedCount = 0;
+        let skippedCount = 0;
+
+        // Loop through every tab (Category) in the workbook
+        for (const sheetName of workbook.SheetNames) {
+          const worksheet = workbook.Sheets[sheetName];
+          const rawRows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+          
+          if (rawRows.length === 0) continue;
+
+          for (const row of rawRows) {
+            const cleanRow: any = {};
+            Object.keys(row).forEach(key => {
+              cleanRow[key.trim()] = row[key];
+            });
+
+            // 1. Extract Fields with Flexible Lookups
+            const tmCode = String(
+              cleanRow["TM Code"] || 
+              cleanRow["Reference Model No."] || 
+              cleanRow["SKU"] || ""
+            ).trim();
+
+            const prodName = String(
+              cleanRow["Product Name (Title)"] || 
+              cleanRow["Product Name"] || 
+              cleanRow["Name"] || 
+              tmCode
+            ).trim();
+
+            // Use Sheet Name as Category if category column is blank
+            const category = String(
+              cleanRow["Category"] || 
+              sheetName
+            ).trim();
+
+            const prodSize = String(
+              cleanRow["Product Size"] || 
+              cleanRow["Size"] || 
+              cleanRow["Height"] || 
+              cleanRow["Base Dimensions"] || ""
+            ).trim();
+
+            const prodImage = String(
+              cleanRow["Product Image"] || 
+              cleanRow["Image"] || 
+              cleanRow["featured_image"] || ""
+            ).trim();
+
+            const parsedDiscount = Number(
+              cleanRow["Discount"] || 
+              cleanRow["Discount to be allowed"] || 
+              cleanRow["discount"] || 0
+            );
+            const discountVal = isNaN(parsedDiscount) ? 0 : parsedDiscount;
+
+            const parsedQty = Number(
+              cleanRow["Available Quantity (Pc)"] || 
+              cleanRow["Quantity"] || 10
+            );
+            const qtyVal = isNaN(parsedQty) ? 10 : parsedQty;
+
+            let rawMrp = String(cleanRow["MRP"] || cleanRow["Selling Price"] || "0");
+            let sellingPrice = Number(rawMrp.replace(/[^0-9.]/g, "")) || 0;
+            if (isNaN(sellingPrice)) sellingPrice = 0;
+
+            // Extract numeric height digits (e.g. "54 Inch" -> 54)
+            const numericHeight = parseFloat(prodSize.replace(/[^0-9.]/g, "")) || 0;
+
+            // 2. Strict Validation: Skip header rows, templates, or rows missing required fields
+            if (
+              !tmCode || 
+              tmCode === "TM / L" || 
+              tmCode.includes("GST Calculated") || 
+              !prodName || 
+              !category || 
+              !prodSize || 
+              sellingPrice <= 0
+            ) {
+              skippedCount++;
+              continue;
+            }
+
+            const productPayload = {
+              name: prodName,
+              tm_code: tmCode,
+              sku: String(cleanRow["SKU"] || tmCode).trim(),
+              category: category,
+              quantity: qtyVal,
+              purchase_price: Math.round(sellingPrice * 0.6),
+              selling_price: sellingPrice,
+              supplier: String(cleanRow["Supplier"] || "Default Supplier").trim(),
+              height: numericHeight,
+              width: 0,
+              weight: 0,
+              image: prodImage === "nan" || !prodImage ? "" : prodImage,
+              discount: discountVal,
+              stock_status: qtyVal === 0 ? "Out of Stock" : qtyVal <= 5 ? "Low Stock" : "In Stock",
+              notes: "",
+            };
+
+            const formBody = new URLSearchParams();
+            Object.keys(productPayload).forEach((key) => {
+              const val = (productPayload as any)[key];
+              const safeVal = val === undefined || val === null || Number.isNaN(val) ? "" : String(val);
+              formBody.append(key, safeVal);
+            });
+
+            const res = await fetch("/api/inventory", {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: formBody.toString(),
+            });
+
+            if (res.ok) {
+              importedCount++;
+            } else {
+              skippedCount++;
+            }
+          }
+        }
+
+        toast.success(`Imported ${importedCount} products across all tabs successfully! (Skipped ${skippedCount} placeholder rows)`, { id: toastId });
+        fetchInventory();
+      } catch (err: any) {
+        console.error(err);
+        toast.error(err.message || "Failed to parse multi-tab catalog ❌", { id: toastId });
+      } finally {
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  };
+
   // ✅ PRINT BARCODE / QR LABEL
   const handlePrintBarcode = () => {
     const printContent = barcodeRef.current?.innerHTML;
@@ -178,6 +333,20 @@ export default function InventoryPage() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
+
+  // ✅ FIXED PAGINATION WINDOW (Show 5 page numbers at a time)
+  const maxVisiblePages = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+  if (endPage - startPage + 1 < maxVisiblePages) {
+    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+  }
+
+  const pageNumbers = [];
+  for (let i = startPage; i <= endPage; i++) {
+    pageNumbers.push(i);
+  }
 
   const exportData = () => {
     const headers = [
@@ -225,21 +394,36 @@ export default function InventoryPage() {
                 Stock & Inventory Management
               </h1>
               <p className="text-gray-400 text-sm">
-                Track and manage inventory across all warehouses
+                Track and manage inventory across all warehouses & bulk imports
               </p>
             </div>
 
             <div className="flex gap-3">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept=".xlsx, .xls, .csv"
+                className="hidden"
+              />
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-lg text-white text-sm transition"
+              >
+                <Upload size={16} /> Upload Excel
+              </button>
+
               <button
                 onClick={exportData}
-                className="flex items-center gap-2 bg-zinc-800 px-4 py-2 rounded-lg text-white"
+                className="flex items-center gap-2 bg-zinc-800 px-4 py-2 rounded-lg text-white text-sm transition"
               >
                 <Download size={18} />
                 Export Data
               </button>
 
               <button
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg text-white"
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg text-white text-sm transition"
                 onClick={() => setOpenStock(true)}
               >
                 <Plus size={18} />
@@ -287,20 +471,23 @@ export default function InventoryPage() {
           )}
 
           {/* 🔍 SEARCH + FILTERS */}
-          <div className="flex justify-between">
-            <div className="flex gap-3 items-center">
+          <div className="flex justify-between flex-wrap gap-4">
+            <div className="flex gap-3 items-center flex-wrap">
               <div className="flex items-center gap-2 bg-zinc-800 px-3 py-2 rounded">
                 <Search size={16} />
                 <input
                   placeholder="Search by TM Code, Name..."
                   className="bg-transparent outline-none text-white text-xs"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setCurrentPage(1);
+                  }}
                 />
               </div>
 
               <button
-                onClick={() => setFilter("all")}
+                onClick={() => { setFilter("all"); setCurrentPage(1); }}
                 className={`px-3 py-1 rounded text-xs ${
                   filter === "all"
                     ? "bg-green-600 text-white"
@@ -311,10 +498,10 @@ export default function InventoryPage() {
               </button>
 
               <button
-                onClick={() => setFilter("low")}
+                onClick={() => { setFilter("low"); setCurrentPage(1); }}
                 className={`px-3 py-1 rounded text-xs ${
                   filter === "low"
-                    ? "bg-yellow-500 text-black"
+                    ? "bg-yellow-500 text-black font-semibold"
                     : "bg-zinc-800 text-gray-300"
                 }`}
               >
@@ -322,7 +509,7 @@ export default function InventoryPage() {
               </button>
 
               <button
-                onClick={() => setFilter("out")}
+                onClick={() => { setFilter("out"); setCurrentPage(1); }}
                 className={`px-3 py-1 rounded text-xs ${
                   filter === "out"
                     ? "bg-red-600 text-white"
@@ -335,20 +522,20 @@ export default function InventoryPage() {
 
             <div className="flex gap-3">
               <button
-                onClick={() => setCategoryFilter("all")}
-                className="px-3 py-1 bg-zinc-800 rounded text-xs text-white"
+                onClick={() => { setCategoryFilter("all"); setCurrentPage(1); }}
+                className={`px-3 py-1 rounded text-xs ${categoryFilter === "all" ? "bg-zinc-700 text-white font-semibold" : "bg-zinc-800 text-gray-300"}`}
               >
                 All
               </button>
               <button
-                onClick={() => setCategoryFilter("Finished Goods")}
-                className="px-3 py-1 bg-zinc-800 rounded text-xs text-white"
+                onClick={() => { setCategoryFilter("Finished Goods"); setCurrentPage(1); }}
+                className={`px-3 py-1 rounded text-xs ${categoryFilter === "Finished Goods" ? "bg-zinc-700 text-white font-semibold" : "bg-zinc-800 text-gray-300"}`}
               >
                 Finished
               </button>
               <button
-                onClick={() => setCategoryFilter("Raw Material")}
-                className="px-3 py-1 bg-zinc-800 rounded text-xs text-white"
+                onClick={() => { setCategoryFilter("Raw Material"); setCurrentPage(1); }}
+                className={`px-3 py-1 rounded text-xs ${categoryFilter === "Raw Material" ? "bg-zinc-700 text-white font-semibold" : "bg-zinc-800 text-gray-300"}`}
               >
                 Raw
               </button>
@@ -373,125 +560,155 @@ export default function InventoryPage() {
               </thead>
 
               <tbody>
-                {paginatedInventory.map((item, i) => {
-                  const status = getStockStatus(item.quantity);
+                {paginatedInventory.length > 0 ? (
+                  paginatedInventory.map((item, i) => {
+                    const status = getStockStatus(item.quantity);
 
-                  return (
-                    <tr
-                      key={i}
-                      className="border-b border-zinc-800 hover:bg-zinc-800/40"
-                    >
-                      <td className="py-3">
-                        {item.featured_image ? (
-                          <img
-                            src={`/uploads/${item.featured_image}`}
-                            alt={item.name}
-                            className="w-10 h-10 object-cover rounded"
-                            onError={(e) => {
-                              e.currentTarget.src = "/no-image.png";
-                            }}
-                          />
-                        ) : (
-                          <span className="text-gray-400 text-xs">No Image</span>
-                        )}
-                      </td>
-                      <td className="py-3 text-blue-400 text-xs font-mono">
-                        {item.tm_code || item.sku || `TM-${item.id}`}
-                      </td>
+                    return (
+                      <tr
+                        key={i}
+                        className="border-b border-zinc-800 hover:bg-zinc-800/40"
+                      >
+                        <td className="py-3">
+                          {item.featured_image ? (
+                            <img
+                              src={`/uploads/${item.featured_image}`}
+                              alt={item.name}
+                              className="w-10 h-10 object-cover rounded"
+                              onError={(e) => {
+                                e.currentTarget.src = "/no-image.png";
+                              }}
+                            />
+                          ) : (
+                            <span className="text-gray-400 text-xs">No Image</span>
+                          )}
+                        </td>
+                        <td className="py-3 text-blue-400 text-xs font-mono">
+                          {item.tm_code || item.sku || `TM-${item.id}`}
+                        </td>
 
-                      <td className="text-white truncate text-sm">{item.name}</td>
+                        <td className="text-white truncate text-sm">{item.name}</td>
 
-                      <td className="text-gray-300 text-xs">{item.category}</td>
+                        <td className="text-gray-300 text-xs">{item.category}</td>
 
-                      <td className="text-center text-gray-300 text-xs">
-                        {item.product_height_inches ? `${item.product_height_inches}"` : "-"}
-                      </td>
+                        <td className="text-center text-gray-300 text-xs">
+                          {item.height ? `${item.height}"` : "-"}
+                        </td>
 
-                      <td className="text-center text-white font-medium text-xs">
-                        {item.quantity}
-                      </td>
+                        <td className="text-center text-white font-medium text-xs">
+                          {item.quantity}
+                        </td>
 
-                      <td className="text-gray-300 text-xs truncate">{item.supplier || "-"}</td>
+                        <td className="text-gray-300 text-xs truncate">{item.supplier || "-"}</td>
 
-                      <td className="text-center">
-                        <span
-                          className={`px-2 py-1 rounded text-[10px] ${
-                            status === "In Stock"
-                              ? "bg-green-500/20 text-green-400"
-                              : status === "Low Stock"
-                              ? "bg-yellow-500/20 text-yellow-400"
-                              : "bg-red-500/20 text-red-400"
-                          }`}
-                        >
-                          {status}
-                        </span>
-                      </td>
+                        <td className="text-center">
+                          <span
+                            className={`px-2 py-1 rounded text-[10px] ${
+                              status === "In Stock"
+                                ? "bg-green-500/20 text-green-400"
+                                : status === "Low Stock"
+                                ? "bg-yellow-500/20 text-yellow-400"
+                                : "bg-red-500/20 text-red-400"
+                            }`}
+                          >
+                            {status}
+                          </span>
+                        </td>
 
-                      <td className="text-right">
-                        <div className="flex justify-end gap-2.5 items-center">
-                          {/* 🏷 BARCODE / QR SCANNER LABEL BUTTON */}
-                          <Barcode
-                            size={18}
-                            className="text-amber-400 hover:text-amber-300 cursor-pointer"
-                            //title="Generate Scanner Label"
-                            onClick={() => setBarcodeItem(item)}
-                          />
+                        <td className="text-right">
+                          <div className="flex justify-end gap-2.5 items-center">
+                            <Barcode
+                              size={18}
+                              className="text-amber-400 hover:text-amber-300 cursor-pointer"
+                              onClick={() => setBarcodeItem(item)}
+                            />
 
-                          <Pencil
-                            size={16}
-                            className="text-green-400 hover:text-green-300 cursor-pointer"
-                            onClick={() => {
-                              setSelectedItem(item);
-                              setOpenEditStock(true);
-                            }}
-                          />
+                            <Pencil
+                              size={16}
+                              className="text-green-400 hover:text-green-300 cursor-pointer"
+                              onClick={() => {
+                                setSelectedItem(item);
+                                setOpenEditStock(true);
+                              }}
+                            />
 
-                          <Trash2
-                            size={16}
-                            className="text-red-400 hover:text-red-300 cursor-pointer"
-                            onClick={() => handleDelete(item.id)}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                            <Trash2
+                              size={16}
+                              className="text-red-400 hover:text-red-300 cursor-pointer"
+                              onClick={() => handleDelete(item.id)}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={9} className="py-12 text-center text-zinc-500 text-sm">
+                      No inventory records found.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
 
-            {/* PAGINATION */}
-            <div className="flex justify-between items-center mt-4">
+            {/* ✅ FIXED PAGINATION (5 PAGES AT A TIME WINDOW) */}
+            <div className="flex justify-between items-center mt-6">
               <p className="text-gray-400 text-sm">
-                Page {currentPage} of {totalPages}
+                Page {currentPage} of {totalPages || 1}
               </p>
 
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setCurrentPage((p) => p - 1)}
                   disabled={currentPage === 1}
-                  className="px-3 py-1 bg-zinc-800 text-white rounded disabled:opacity-40 text-xs"
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                  className="px-3.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded text-sm disabled:opacity-40 transition"
                 >
                   Prev
                 </button>
 
-                {[...Array(totalPages)].map((_, i) => (
+                {startPage > 1 && (
+                  <>
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      className="px-3.5 py-1.5 rounded-md text-sm bg-zinc-800 hover:bg-zinc-700 text-gray-300 transition"
+                    >
+                      1
+                    </button>
+                    {startPage > 2 && <span className="text-gray-500 px-1">...</span>}
+                  </>
+                )}
+
+                {pageNumbers.map((num) => (
                   <button
-                    key={i}
-                    onClick={() => setCurrentPage(i + 1)}
-                    className={`px-3 py-1 rounded text-xs ${
-                      currentPage === i + 1
-                        ? "bg-green-600 text-white"
-                        : "bg-zinc-800 text-gray-300"
+                    key={num}
+                    onClick={() => setCurrentPage(num)}
+                    className={`px-3.5 py-1.5 rounded-md text-sm transition ${
+                      currentPage === num
+                        ? "bg-green-600 text-white font-semibold"
+                        : "bg-zinc-800 hover:bg-zinc-700 text-gray-300"
                     }`}
                   >
-                    {i + 1}
+                    {num}
                   </button>
                 ))}
 
+                {endPage < totalPages && (
+                  <>
+                    {endPage < totalPages - 1 && <span className="text-gray-500 px-1">...</span>}
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      className="px-3.5 py-1.5 rounded-md text-sm bg-zinc-800 hover:bg-zinc-700 text-gray-300 transition"
+                    >
+                      {totalPages}
+                    </button>
+                  </>
+                )}
+
                 <button
+                  disabled={currentPage === totalPages || totalPages === 0}
                   onClick={() => setCurrentPage((p) => p + 1)}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1 bg-zinc-800 text-white rounded disabled:opacity-40 text-xs"
+                  className="px-3.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded text-sm disabled:opacity-40 transition"
                 >
                   Next
                 </button>
@@ -500,90 +717,109 @@ export default function InventoryPage() {
           </div>
 
           {/* 🏷 BARCODE SCANNER LABEL & DETAILS PREVIEW MODAL */}
-          {barcodeItem && (
-            <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-50">
-              <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl w-[400px] relative shadow-2xl">
-                <button
-                  onClick={() => setBarcodeItem(null)}
-                  className="absolute top-4 right-4 text-zinc-400 hover:text-white"
-                >
-                  <X size={18} />
-                </button>
+  {barcodeItem && (
+    <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-50 p-4">
+      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl w-[400px] relative shadow-2xl">
+        <button
+          onClick={() => setBarcodeItem(null)}
+          className="absolute top-4 right-4 text-zinc-400 hover:text-white"
+        >
+          <X size={18} />
+        </button>
 
-                <h3 className="text-white font-bold text-base mb-4 flex items-center gap-2">
-                  <Barcode className="text-green-500" size={20} /> Scanner Label & Details Preview
-                </h3>
+        <h3 className="text-white font-bold text-base mb-4 flex items-center gap-2">
+          <Barcode className="text-green-500" size={20} /> Scanner Label & Details Preview
+        </h3>
 
-                {/* Printable Label Card matching exact specs (No category, height in inches, product image, TM Code for scanner) */}
-                <div
-                  ref={barcodeRef}
-                  className="bg-white text-black p-4 rounded-xl border-2 border-dashed border-zinc-400 text-center flex flex-col items-center shadow-inner"
-                >
-                  <h4 className="font-black text-sm tracking-widest uppercase m-0">TROPHY MALL</h4>
-                  <p className="text-[9px] font-bold text-green-600 uppercase tracking-wider mb-2">CRAFTED FOR LEGENDS</p>
-                  
-                  {/* Product Image */}
-                  {barcodeItem.featured_image ? (
-                    <img
-                      src={`/uploads/${barcodeItem.featured_image}`}
-                      alt={barcodeItem.name}
-                      className="w-16 h-16 object-cover rounded-lg mb-2 border border-zinc-300"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                    />
-                  ) : null}
+        {/* Printable Label Card with strict dimensions */}
+        <div
+          ref={barcodeRef}
+          style={{ width: "280px", margin: "0 auto" }}
+          className="bg-white text-black p-4 rounded-xl border-2 border-dashed border-zinc-400 text-center flex flex-col items-center shadow-inner"
+        >
+          <h4 style={{ fontSize: "12px", fontWeight: 900, letterSpacing: "1.5px", margin: "0 0 2px 0" }}>TROPHY MALL</h4>
+          <p style={{ fontSize: "8px", fontWeight: "bold", color: "#16a34a", textTransform: "uppercase", marginBottom: "8px" }}>CRAFTED FOR LEGENDS</p>
+          
+          {/* Constrained Product Image */}
+          {barcodeItem.featured_image || barcodeItem.featured_image ? (
+            <img
+              src={`/uploads/${barcodeItem.featured_image || barcodeItem.featured_image}`}
+              alt={barcodeItem.name}
+              style={{ width: "55px", height: "55px", objectFit: "contain", borderRadius: "6px", marginBottom: "6px", border: "1px solid #eee" }}
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
+          ) : null}
 
-                  <p className="font-bold text-xs text-zinc-900 mb-1 line-clamp-1">{barcodeItem.name}</p>
-                  
-                  <p className="text-[10px] text-zinc-600 mb-2">
-                    Height: <span className="font-semibold">{barcodeItem.product_height_inches ? `${barcodeItem.product_height_inches} inches` : "Standard"}</span>
-                  </p>
+          <p style={{ fontSize: "11px", fontWeight: "bold", color: "#111", marginBottom: "3px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%" }}>
+            {barcodeItem.name}
+          </p>
+          
+          <p style={{ fontSize: "9px", color: "#555", marginBottom: "6px" }}>
+            Height: <span style={{ fontWeight: 600 }}>{barcodeItem.height || barcodeItem.height ? `${barcodeItem.height || barcodeItem.height} inches` : "Standard"}</span>
+          </p>
 
-                  {/* Barcode Graphic generated from TM Code for scanner */}
-                  <div className="w-full bg-white py-1 flex flex-col items-center my-1">
-                    <img
-                      src={`https://barcodeapi.org/api/128/${barcodeItem.tm_code || barcodeItem.sku || `TM-${barcodeItem.id}`}`}
-                      alt="Scanner Barcode"
-                      className="w-full h-12 object-contain"
-                    />
-                    <span className="font-mono font-bold text-xs tracking-widest mt-1 text-black">
-                      {barcodeItem.tm_code || barcodeItem.sku || `TM-${barcodeItem.id}`}
-                    </span>
-                  </div>
+          {/* Barcode Graphic */}
+          <div style={{ width: "100%", background: "#fff", padding: "2px 0", display: "flex", flexDirection: "column", alignItems: "center", margin: "2px 0" }}>
+            <img
+              src={`https://barcodeapi.org/api/128/${barcodeItem.tm_code || barcodeItem.sku || `TM-${barcodeItem.id}`}`}
+              alt="Scanner Barcode"
+              style={{ width: "100%", height: "40px", objectFit: "contain" }}
+            />
+            <span style={{ fontFamily: "monospace", fontSize: "11px", fontWeight: "bold", letterSpacing: "1px", marginTop: "2px", color: "#000" }}>
+              {barcodeItem.tm_code || barcodeItem.sku || `TM-${barcodeItem.id}`}
+            </span>
+          </div>
 
-                  <p className="font-extrabold text-sm text-zinc-900 mt-2">
-                    MRP: ₹{barcodeItem.selling_price || 0}
-                  </p>
-                </div>
+          <p style={{ fontSize: "13px", fontWeight: 900, color: "#000", marginTop: "6px" }}>
+            MRP: ₹{barcodeItem.selling_price || 0}
+          </p>
+        </div>
 
-                {/* Scan Simulator / Details Inspection */}
-                <div className="bg-[#18181c] p-3 rounded-xl border border-zinc-800 mt-4 text-xs space-y-1">
-                  <p className="text-zinc-400 font-semibold mb-1">🔍 Scanner Inspection Preview:</p>
-                  <p className="text-zinc-300">Name: <span className="text-white font-medium">{barcodeItem.name}</span></p>
-                  <p className="text-zinc-300">TM Code: <span className="text-blue-400 font-mono font-bold">{barcodeItem.tm_code || barcodeItem.sku}</span></p>
-                  <p className="text-zinc-300">Height: <span className="text-white font-medium">{barcodeItem.product_height_inches || "-"} inches</span></p>
-                  <p className="text-zinc-300">Price: <span className="text-green-400 font-bold">₹{barcodeItem.selling_price}</span></p>
-                </div>
+        {/* Print Function with Clean Page Styles */}
+        <div className="flex gap-3 mt-5">
+          <button
+            onClick={() => {
+              const printContent = barcodeRef.current?.innerHTML;
+              if (!printContent) return;
 
-                {/* Actions */}
-                <div className="flex gap-3 mt-4">
-                  <button
-                    onClick={handlePrintBarcode}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition"
-                  >
-                    <Printer size={15} /> Print / Download Label
-                  </button>
-                  <button
-                    onClick={() => setBarcodeItem(null)}
-                    className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2.5 rounded-xl text-xs font-semibold transition"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+              const printWindow = window.open("", "", "width=500,height=600");
+              if (printWindow) {
+                printWindow.document.write(`
+                  <html>
+                    <head>
+                      <title>Print Label - TrophyMall</title>
+                      <style>
+                        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #fff; }
+                        .label-card { border: 2px dashed #333; padding: 16px; text-align: center; width: 260px; border-radius: 10px; background: #fff; }
+                      </style>
+                    </head>
+                    <body>
+                      <div class="label-card">${printContent}</div>
+                      <script>
+                        window.onload = function() { window.print(); window.close(); }
+                      </script>
+                    </body>
+                  </html>
+                `);
+                printWindow.document.close();
+              }
+            }}
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition"
+          >
+            <Printer size={15} /> Print / Download Label
+          </button>
+          <button
+            onClick={() => setBarcodeItem(null)}
+            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2.5 rounded-xl text-xs font-semibold transition"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
         </div>
       </div>
     </div>
