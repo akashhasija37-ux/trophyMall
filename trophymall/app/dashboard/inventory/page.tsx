@@ -215,7 +215,9 @@ export default function InventoryPage() {
 
             const parsedQty = Number(
               cleanRow["Available Quantity (Pc)"] || 
-              cleanRow["Quantity"] || 10
+              cleanRow["Quantity"] ||
+              cleanRow["quantity"] ||
+               10
             );
             const qtyVal = isNaN(parsedQty) ? 10 : parsedQty;
 

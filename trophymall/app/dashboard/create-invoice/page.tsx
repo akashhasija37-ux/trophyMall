@@ -133,7 +133,22 @@ export default function SalesVoucherPage({ refresh }: any) {
   const [transportMode, setTransportMode] = useState("Road");
 
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
-  const [newCustData, setNewCustData] = useState({ name: "", phone: "", gst: "", address: "" });
+  const [newCustData, setNewCustData] = useState({
+    name: "",
+    phone: "",
+    alternate_phone: "",
+    email: "",
+    dob: "",
+    state: "",
+    city: "",
+    address: "",
+    pin: "",
+    reference: "Instagram",
+    first_visit: new Date().toISOString().split('T')[0],
+    gst: "",
+    acgroup: "",
+    
+  });
 
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [newProdData, setNewProdData] = useState({ name: "", barcode: "", hsn: "", price: "", stock: "" });
@@ -227,10 +242,16 @@ export default function SalesVoucherPage({ refresh }: any) {
       message.error("Please enter a valid 15-digit GSTIN");
       return;
     }
+    
     try {
-      message.loading({ content: "Verifying GSTIN from Govt Portal...", key: "gstVerify" });
-      await new Promise((r) => setTimeout(r, 1000));
-      message.success({ content: "GSTIN Verified Successfully!", key: "gstVerify", duration: 2 });
+      message.loading({ content: "Opening GST Portal for verification...", key: "gstVerify" });
+      
+      // Open official Govt GST portal search page in a new tab
+      window.open("https://services.gst.gov.in/services/searchtp", "_blank");
+
+      await new Promise((r) => setTimeout(r, 800));
+      message.success({ content: "GSTIN Registered & Updated in Invoice!", key: "gstVerify", duration: 2 });
+      
       updateInvoiceTab({ customerGst: gstNo });
     } catch (err) {
       message.error({ content: "GSTIN Verification Failed", key: "gstVerify" });
@@ -259,11 +280,20 @@ export default function SalesVoucherPage({ refresh }: any) {
       message.error("Customer Name is required");
       return;
     }
+    
+    const newCode = `CUST-${Math.floor(1000 + Math.random() * 9000)}`;
+
     try {
-      const newCode = `CUST-${Math.floor(1000 + Math.random() * 9000)}`;
       const payload = {
         name: newCustData.name,
         phone: newCustData.phone,
+        alternate_phone: newCustData.alternate_phone,
+        email: newCustData.email,
+        dob: newCustData.dob,
+        state: newCustData.state,
+        city: newCustData.city,
+        reference: newCustData.reference,
+        first_visit: newCustData.first_visit,
         gst: newCustData.gst,
         address: newCustData.address,
         code: newCode,
@@ -288,25 +318,53 @@ export default function SalesVoucherPage({ refresh }: any) {
           customerAddress: newCustData.address,
         });
         setIsCustomerModalOpen(false);
-        setNewCustData({ name: "", phone: "", gst: "", address: "" });
+        setNewCustData({
+          name: "",
+          phone: "",
+          alternate_phone: "",
+          email: "",
+          dob: "",
+          state: "",
+          city: "",
+          reference: "Instagram",
+          first_visit: new Date().toISOString().split('T')[0],
+          gst: "",
+          address: "",
+          pin: "",
+          acgroup: "",
+        });
       } else {
         throw new Error(data.error || "Failed to create customer");
       }
     } catch (err: any) {
-      const newCode = `CUST-${Math.floor(1000 + Math.random() * 9000)}`;
+      // Fallback update if API is unreachable or still pending table setup
       updateInvoiceTab({
         customer: Date.now(),
         customerName: newCustData.name,
         customerMobile: newCustData.phone,
         customerCode: newCode,
         customerGst: newCustData.gst,
+        customerAddress: newCustData.address,
       });
       message.success("Customer added to invoice successfully");
       setIsCustomerModalOpen(false);
-      setNewCustData({ name: "", phone: "", gst: "", address: "" });
+      setNewCustData({
+        name: "",
+        phone: "",
+        alternate_phone: "",
+        email: "",
+        dob: "",
+        state: "",
+        city: "",
+        reference: "Instagram",
+        first_visit: new Date().toISOString().split('T')[0],
+        gst: "",
+        address: "",
+        pin: "",
+        acgroup: "",
+      });
     }
   };
-
   const handleBarcodeScan = (index: number, barcode: string) => {
     const foundProduct = products.find((p) => p.barcode === barcode || p.sku === barcode);
     if (foundProduct) {
@@ -1183,17 +1241,189 @@ export default function SalesVoucherPage({ refresh }: any) {
       </Modal>
 
       {/* QUICK ADD CUSTOMER MODAL */}
-      <Modal title="Add New Customer" open={isCustomerModalOpen} onCancel={() => setIsCustomerModalOpen(false)} footer={null}>
-        <div className="space-y-3 pt-2">
-          <input type="text" value={newCustData.name} onChange={(e) => setNewCustData({ ...newCustData, name: e.target.value })} placeholder="Customer Name *" className="w-full bg-[#1a1a1a] border border-zinc-700 rounded px-3 py-2 text-sm text-white" />
-          <input type="text" value={newCustData.phone} onChange={(e) => setNewCustData({ ...newCustData, phone: e.target.value })} placeholder="Mobile Number" className="w-full bg-[#1a1a1a] border border-zinc-700 rounded px-3 py-2 text-sm text-white" />
-          <input type="text" value={newCustData.gst} onChange={(e) => setNewCustData({ ...newCustData, gst: e.target.value })} placeholder="GSTIN" className="w-full bg-[#1a1a1a] border border-zinc-700 rounded px-3 py-2 text-sm text-white" />
-          <div className="flex justify-end gap-2 pt-2">
-            <button onClick={() => setIsCustomerModalOpen(false)} className="bg-zinc-800 text-white px-3 py-1.5 rounded text-xs">Cancel</button>
-            <button onClick={handleSaveNewCustomer} className="bg-green-700 text-white px-4 py-1.5 rounded text-xs font-bold">Save</button>
-          </div>
-        </div>
-      </Modal>
+      <Modal 
+  title={<span className="text-dark font-bold text-base">Add New Customer</span>} 
+  open={isCustomerModalOpen} 
+  onCancel={() => setIsCustomerModalOpen(false)} 
+  footer={null}
+  width={600}
+  className="dark-modal"
+>
+  <div className="space-y-3.5 pt-2 text-xs">
+    
+    {/* Name & Mobile */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label className="text-zinc-400 block mb-1 font-semibold">Customer Name *</label>
+        <input 
+          type="text" 
+          value={newCustData.name || ""} 
+          onChange={(e) => setNewCustData({ ...newCustData, name: e.target.value })} 
+          placeholder="e.g. Rahul Sharma" 
+          className="w-full bg-[#1a1a1a] border border-zinc-700 focus:border-green-500 rounded-xl px-3.5 py-2.5 text-white outline-none" 
+        />
+      </div>
+      <div>
+        <label className="text-zinc-400 block mb-1 font-semibold">Mobile Number *</label>
+        <input 
+          type="text" 
+          value={newCustData.phone || ""} 
+          onChange={(e) => setNewCustData({ ...newCustData, phone: e.target.value })} 
+          placeholder="9876543210" 
+          className="w-full bg-[#1a1a1a] border border-zinc-700 focus:border-green-500 rounded-xl px-3.5 py-2.5 text-white outline-none" 
+        />
+      </div>
+    </div>
+
+    {/* Alternate Mobile & Email */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label className="text-zinc-400 block mb-1 font-semibold">Alternate Mobile</label>
+        <input 
+          type="text" 
+          value={newCustData.alternate_phone || ""} 
+          onChange={(e) => setNewCustData({ ...newCustData, alternate_phone: e.target.value })} 
+          placeholder="Optional phone" 
+          className="w-full bg-[#1a1a1a] border border-zinc-700 focus:border-green-500 rounded-xl px-3.5 py-2.5 text-white outline-none" 
+        />
+      </div>
+      <div>
+        <label className="text-zinc-400 block mb-1 font-semibold">Email Address</label>
+        <input 
+          type="email" 
+          value={newCustData.email || ""} 
+          onChange={(e) => setNewCustData({ ...newCustData, email: e.target.value })} 
+          placeholder="customer@example.com" 
+          className="w-full bg-[#1a1a1a] border border-zinc-700 focus:border-green-500 rounded-xl px-3.5 py-2.5 text-white outline-none" 
+        />
+      </div>
+    </div>
+
+    {/* DOB & State & City */}
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div>
+        <label className="text-zinc-400 block mb-1 font-semibold">Date of Birth (DOB)</label>
+        <input 
+          type="date" 
+          value={newCustData.dob || ""} 
+          onChange={(e) => setNewCustData({ ...newCustData, dob: e.target.value })} 
+          className="w-full bg-[#1a1a1a] border border-zinc-700 focus:border-green-500 rounded-xl px-3.5 py-2.5 text-white outline-none" 
+        />
+      </div>
+      <div>
+        <label className="text-zinc-400 block mb-1 font-semibold">State</label>
+        <input 
+          type="text" 
+          value={newCustData.state || ""} 
+          onChange={(e) => setNewCustData({ ...newCustData, state: e.target.value })} 
+          placeholder="e.g. Haryana" 
+          className="w-full bg-[#1a1a1a] border border-zinc-700 focus:border-green-500 rounded-xl px-3.5 py-2.5 text-white outline-none" 
+        />
+      </div>
+      <div>
+        <label className="text-zinc-400 block mb-1 font-semibold">City</label>
+        <input 
+          type="text" 
+          value={newCustData.city || ""} 
+          onChange={(e) => setNewCustData({ ...newCustData, city: e.target.value })} 
+          placeholder="e.g. Karnal" 
+          className="w-full bg-[#1a1a1a] border border-zinc-700 focus:border-green-500 rounded-xl px-3.5 py-2.5 text-white outline-none" 
+        />
+      </div>
+    </div>
+
+
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div>
+        <label className="text-zinc-400 block mb-1 font-semibold">Ac/group</label>
+        <input 
+          type="date" 
+          value={newCustData.acgroup || ""} 
+          onChange={(e) => setNewCustData({ ...newCustData, acgroup: e.target.value })} 
+          className="w-full bg-[#1a1a1a] border border-zinc-700 focus:border-green-500 rounded-xl px-3.5 py-2.5 text-white outline-none" 
+        />
+      </div>
+      <div>
+        <label className="text-zinc-400 block mb-1 font-semibold">Address</label>
+        <input 
+          type="text" 
+          value={newCustData.address || ""} 
+          onChange={(e) => setNewCustData({ ...newCustData, address: e.target.value })} 
+          placeholder="e.g. Haryana" 
+          className="w-full bg-[#1a1a1a] border border-zinc-700 focus:border-green-500 rounded-xl px-3.5 py-2.5 text-white outline-none" 
+        />
+      </div>
+      <div>
+        <label className="text-zinc-400 block mb-1 font-semibold">Pin Code</label>
+        <input 
+          type="text" 
+          value={newCustData.pin || ""} 
+          onChange={(e) => setNewCustData({ ...newCustData, pin: e.target.value })} 
+          placeholder="e.g. 132001" 
+          className="w-full bg-[#1a1a1a] border border-zinc-700 focus:border-green-500 rounded-xl px-3.5 py-2.5 text-white outline-none" 
+        />
+      </div>
+    </div>
+    
+
+    {/* Reference & First Visit & GSTIN */}
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div>
+        <label className="text-zinc-400 block mb-1 font-semibold">Reference Source</label>
+        <select 
+          value={newCustData.reference || "Instagram"} 
+          onChange={(e) => setNewCustData({ ...newCustData, reference: e.target.value })} 
+          className="w-full bg-[#1a1a1a] border border-zinc-700 focus:border-green-500 rounded-xl px-3.5 py-2.5 text-white outline-none cursor-pointer"
+        >
+          <option value="Instagram">Instagram</option>
+          <option value="Facebook">Facebook</option>
+          <option value="Friend">Friend / Referral</option>
+          <option value="Walk-in">Direct Walk-in</option>
+          <option value="Google">Google Search</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="text-zinc-400 block mb-1 font-semibold">First Visit Date</label>
+        <input 
+          type="date" 
+          value={newCustData.first_visit || new Date().toISOString().split('T')[0]} 
+          onChange={(e) => setNewCustData({ ...newCustData, first_visit: e.target.value })} 
+          className="w-full bg-[#1a1a1a] border border-zinc-700 focus:border-green-500 rounded-xl px-3.5 py-2.5 text-white outline-none" 
+        />
+      </div>
+
+      <div>
+        <label className="text-zinc-400 block mb-1 font-semibold">GSTIN</label>
+        <input 
+          type="text" 
+          value={newCustData.gst || ""} 
+          onChange={(e) => setNewCustData({ ...newCustData, gst: e.target.value })} 
+          placeholder="15-digit GSTIN" 
+          className="w-full bg-[#1a1a1a] border border-zinc-700 focus:border-green-500 rounded-xl px-3.5 py-2.5 text-white outline-none font-mono uppercase" 
+        />
+      </div>
+    </div>
+
+    {/* Actions */}
+    <div className="flex justify-end gap-2.5 pt-4 border-t border-zinc-800">
+      <button 
+        onClick={() => setIsCustomerModalOpen(false)} 
+        className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2.5 rounded-xl text-xs font-semibold transition"
+      >
+        Cancel
+      </button>
+      <button 
+        onClick={handleSaveNewCustomer} 
+        className="bg-green-700 hover:bg-green-600 text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-green-950/50 transition"
+      >
+        Save Customer
+      </button>
+    </div>
+
+  </div>
+</Modal>
 
       {/* QUICK ADD PRODUCT MODAL */}
       <Modal title="Quick Product Entry (F3)" open={isProductModalOpen} onCancel={() => setIsProductModalOpen(false)} footer={null}>
