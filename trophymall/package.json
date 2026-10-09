@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "server": "node backend/server.js",
-    "build": "npx next build --no-turbopack",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
