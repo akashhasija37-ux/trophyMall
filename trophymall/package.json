@@ -2,13 +2,13 @@
   "name": "trophymall",
   "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "server": "node backend/server.js",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
+ "scripts": {
+  "dev": "next dev --webpack",
+  "server": "node backend/server.js",
+  "build": "next build --webpack",
+  "start": "next start",
+  "lint": "eslint"
+},
   "dependencies": {
     "antd": "^6.3.2",
     "axios": "^1.14.0",
